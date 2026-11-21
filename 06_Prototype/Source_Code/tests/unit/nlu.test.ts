@@ -81,3 +81,23 @@ describe("vacation rules", () => {
     expect(checkVacation(CLOCK, "2026-11-23", "2026-11-25", [{ id: "v", start: "2026-11-24", end: "2026-11-26", createdAt: CLOCK, status: "scheduled" }]).ok).toBe(false);
   });
 });
+
+describe("date edge cases", () => {
+  it("28 Nov to 3 Dec keeps the start in November", () => {
+    expect(parseRange(" pause from 28 nov to 3 dec ", CLOCK)).toMatchObject({ start: "2026-11-28", end: "2026-12-03" });
+  });
+  it("28th to 3rd rolls the end into the next month", () => {
+    expect(parseRange(" pause from 28th to 3rd ", CLOCK)).toMatchObject({ start: "2026-11-28", end: "2026-12-03" });
+  });
+  it("reversed explicit dates are flagged, not repaired", () => {
+    const p = parse("Pause my milk from 30 Nov to 25 Nov", CLOCK);
+    expect(p.range).toBeUndefined();
+    expect(p.badRange).toEqual({ start: "2026-11-30", end: "2026-11-25" });
+  });
+  it("a second request in one message is detected", () => {
+    expect(parse("Pause my deliveries for three days and increase my milk", CLOCK).also).toMatchObject({ intent: "change_subscription" });
+    expect(parse("Add two packets of milk and one paneer", CLOCK).also).toBeUndefined();
+    expect(parse("I am travelling and won't need milk", CLOCK).also).toBeUndefined();
+  });
+});
+

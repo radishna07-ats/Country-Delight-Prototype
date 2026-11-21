@@ -76,7 +76,15 @@ export async function userSays(text: string, ch: Channel = ui.get().channel) {
   lang = p.hinglish ? "hi" : "en";
   logCall({ name: `intent: ${p.intent}`, kind: "nlu", status: "info", channel: ch, args: compactEntities(p) });
   thinking(true);
-  try { await route(p, ch); } finally { thinking(false); }
+  try {
+    await route(p, ch);
+    if (p.also) {
+      logCall({ name: "second request held: one change at a time", kind: "guardrail", status: "info", channel: ch, args: { held: p.also.intent, text: p.also.text } });
+      say(ch, L(`You also asked: “${p.also.text}”. I'll take one change at a time so nothing gets mixed up — tap below when you're ready.`,
+        `Aapne yeh bhi kaha: “${p.also.text}”. Ek-ek karke karti hoon, taaki kuch gadbad na ho — tayyar hon to neeche tap karein.`), undefined,
+        [sayChip(p.also.text[0].toUpperCase() + p.also.text.slice(1), p.also.text)]);
+    }
+  } finally { thinking(false); }
 }
 
 export async function handleEvent(ev: AgentEvent, ch: Channel = ui.get().channel) {
@@ -117,8 +125,31 @@ async function route(p: Parsed, ch: Channel, subIdHint?: string) {
     const handled = await continueAwaiting(p, ch);
     if (handled) return;
   }
+  // Customer revises a change that is still awaiting confirmation ("actually make it 3")
+  const openId = lastPendingChange(); const open = openId ? pending[openId] : undefined;
+  if (openId && open?.kind === "sub_change" && !open.done && p.qty !== undefined && !p.products.length && !p.genericMilk &&
+      /\b(make it|instead|actually|change (it )?to|no,?)\b/i.test(p.text)) {
+    delete pending[openId]; patchCard(openId, { state: "cancelled" });
+    logCall({ name: "customer_revised_request", kind: "guardrail", status: "info", channel: ch, args: { replaced: openId, qty: p.qty } });
+    const sub = subById(open.subId)!;
+    if (p.qty === 0) return zeroQty(sub, ch);
+    if (p.qty === sub.qty && !open.to.frequency) return say(ch, `Okay — then nothing changes: your ${byId(sub.productId).name} stays at ${sub.qty} × ${freqText(sub).toLowerCase()}.`);
+    return proposeSubChange(sub, { ...open.to, qty: p.qty }, ch);
+  }
+  if (p.badRange && ["vacation", "pause_subscription"].includes(p.intent)) {
+    logCall({ name: "rule_check: dates", kind: "policy", status: "refused", channel: ch, args: p.badRange, note: "end date before start date" });
+    awaiting = { intent: "vacation_dates" };
+    return say(ch, `The end date (${fmtDate(p.badRange.end)}) is before the start date (${fmtDate(p.badRange.start)}), so I haven't set anything. Which dates did you mean?`, undefined,
+      [sayChip("Next 3 days", "Pause my deliveries for the next 3 days"), sayChip("Next week", "Pause my deliveries next week")]);
+  }
+  if (p.qtyLimit && ["change_subscription", "add_subscription", "add_to_cart"].includes(p.intent)) {
+    logCall({ name: "guardrail: unusual quantity", kind: "guardrail", status: "refused", channel: ch, args: { qty: p.qtyLimit } });
+    return say(ch, `${p.qtyLimit} is an unusually large quantity, so I won't set it automatically. If you need a bulk order, a person can help — or tell me a smaller number.`, undefined,
+      [sayChip("Talk to a person", "I want to talk to a person")]);
+  }
   switch (p.intent) {
     case "greet": return greet(ch);
+    case "cart_view": return cartView(ch);
     case "thanks": return say(ch, L("You're welcome! Anything else?", "Koi baat nahi! Aur kuch?"));
     case "yes": case "no": return yesNo(p.intent === "yes", ch);
     case "human": return handoff(ch, "Customer asked for a person");
@@ -272,9 +303,26 @@ async function changeSub(p: Parsed, ch: Channel, subIdHint?: string) {
   else if (/\b(increase|more|extra|badha)\b/i.test(p.text)) qty = sub.qty + (p.qty && p.qty !== sub.qty ? p.qty : 1);
   else if (p.qty) qty = p.qty;
   const frequency = p.frequency && p.frequency !== sub.frequency && p.frequency !== "once" ? p.frequency : undefined;
+  if (p.qty === 0 && absoluteZero(p.text)) return zeroQty(sub, ch);
   if (qty < 1) return say(ch, `${byId(sub.productId).name} is already at 1 per delivery. Would you like to pause it or remove it instead?`, undefined, [sayChip("Pause it for a week", `Pause my ${byId(sub.productId).short} next week`), sayChip("Remove it", `Stop my ${byId(sub.productId).short}`)]);
   if (qty === sub.qty && !frequency) return say(ch, `Your ${byId(sub.productId).name} is ${sub.qty} × ${freqText(sub).toLowerCase()}. What should it change to?`, undefined, [sayChip(`Make it ${sub.qty + 1}`, `Make my ${byId(sub.productId).short} ${sub.qty + 1} packets`), sayChip("Alternate days", `Change my ${byId(sub.productId).short} to alternate days`)]);
   return proposeSubChange(sub, { qty, frequency, weekday: p.weekday }, ch);
+}
+
+const absoluteZero = (t: string) => /\b(to|make it|set (it )?to|kar do)\s+(0|zero)\b/i.test(t);
+function zeroQty(sub: Subscription, ch: Channel) {
+  const n = byId(sub.productId);
+  return say(ch, `Setting ${n.name} to 0 would stop it. Would you like to pause it for a while, or remove it?`, undefined,
+    [sayChip("Pause it for a week", `Pause my ${n.short} next week`), sayChip("Remove it", `Stop my ${n.short}`)]);
+}
+async function cartView(ch: Channel) {
+  const cart = db.get().cart;
+  logCall({ name: "screen_context: cart (read, on device)", kind: "app_action", status: "ok", channel: ch, args: { lines: cart.length } });
+  if (!cart.length) return say(ch, "Your cart is empty. Tell me what you'd like — for example “add two packets of milk”.", undefined,
+    [sayChip("Add two packets of milk", "Add two packets of milk to my cart"), chip("Browse products", { kind: "navigate", screen: "products" })]);
+  const total = cart.reduce((s, c) => s + unitPrice(byId(c.productId), isVip()) * c.qty, 0);
+  return say(ch, `Your cart has ${cart.map((c) => `${c.qty} × ${byId(c.productId).name}`).join(", ")} — ${rupees(total)}. Checkout stays with you.`,
+    [{ type: "cart_result", lines: cart, total }], [chip("View cart", { kind: "navigate", screen: "cart" })]);
 }
 
 function proposeSubChange(sub: Subscription, to: { qty?: number; frequency?: Frequency; weekday?: number }, ch: Channel) {

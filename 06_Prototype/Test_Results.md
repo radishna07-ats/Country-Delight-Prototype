@@ -1,10 +1,10 @@
 # Prototype Test Results
 
-**Run:** 2026-11-21 15:26 UTC · Node 22 · Chromium (Playwright) · Vite 5.4.11
+**Run:** 2026-11-21 15:37 UTC · Node 22 · Chromium (Playwright) · Vite 5.4.11
 
 | Suite | Passed | Total |
 |---|---|---|
-| Unit & scenario tests (Vitest) | 67 | 67 |
+| Unit & scenario tests (Vitest) | 78 | 78 |
 | End-to-end UI tests (Playwright) | 19 | 19 |
 | TypeScript strict typecheck | pass | — |
 | Production build | pass | — |
@@ -14,21 +14,21 @@
 | ID | Test | Result | Time |
 |---|---|---|---|
 | E01 | Home renders seeded state (wallet ₹395, tomorrow 3 items) | ✅ PASS | 0.1s |
-| E02 | UC3 Scenario 1: add two packets of milk → cart badge 2 | ✅ PASS | 1.8s |
-| E03 | UC5 Scenario 2: confirm subscription change, reflected in My Subscriptions, undo restores | ✅ PASS | 3.6s |
+| E02 | UC3 Scenario 1: add two packets of milk → cart badge 2 | ✅ PASS | 1.7s |
+| E03 | UC5 Scenario 2: confirm subscription change, reflected in My Subscriptions, undo restores | ✅ PASS | 3.3s |
 | E04 | UC3 Scenario 3: vacation for next three days via voice card → Vacations screen | ✅ PASS | 2.2s |
-| E05 | UC1 Scenario 4: ₹500 explained as Autopay from ledger (₹78 below ₹200) | ✅ PASS | 1.7s |
-| E06 | UC1: unknown amount is not invented | ✅ PASS | 1.4s |
-| E07 | UC2 Scenario 5: status + POD → policy options → confirm → case created and listed in history | ✅ PASS | 4.6s |
-| E08 | UC2 WhatsApp Hinglish: Hinglish reply with order status | ✅ PASS | 2.2s |
+| E05 | UC1 Scenario 4: ₹500 explained as Autopay from ledger (₹78 below ₹200) | ✅ PASS | 1.8s |
+| E06 | UC1: unknown amount is not invented | ✅ PASS | 1.3s |
+| E07 | UC2 Scenario 5: status + POD → policy options → confirm → case created and listed in history | ✅ PASS | 3.8s |
+| E08 | UC2 WhatsApp Hinglish: Hinglish reply with order status | ✅ PASS | 1.7s |
 | E09 | UC2 inbound call: verification before account data, then status | ✅ PASS | 1.8s |
 | E10 | UC6 Scenario 6: consent → goal → diet → peanut allergy → peanut butter excluded | ✅ PASS | 2.2s |
 | E11 | UC4 campaign: voice skipped without consent; in-app push → offer; STOP withdraws consent | ✅ PASS | 1.2s |
 | E12 | Ayuh coexistence: Something else → assistant opens with Ayuh context | ✅ PASS | 0.6s |
-| E13 | Guardrail: fault injection on confirm → 'nothing was changed', state unchanged | ✅ PASS | 2.3s |
+| E13 | Guardrail: fault injection on confirm → 'nothing was changed', state unchanged | ✅ PASS | 2.1s |
 | E14 | Guardrail: declining a change leaves data unchanged | ✅ PASS | 1.3s |
-| E15 | Manual app flow: Set Vacation sheet blocks > 60 days and accepts a valid range | ✅ PASS | 1.4s |
-| E16 | Persistence: subscription change survives a reload; Reset restores seed | ✅ PASS | 4.8s |
+| E15 | Manual app flow: Set Vacation sheet blocks > 60 days and accepts a valid range | ✅ PASS | 0.9s |
+| E16 | Persistence: subscription change survives a reload; Reset restores seed | ✅ PASS | 4.7s |
 | E17 | Friction: looping My Subscriptions ×3 in 45 s shows one quiet suggestion | ✅ PASS | 0.5s |
 | E18 | Mobile viewport (390×844): app fills screen, no horizontal scroll, demo button present | ✅ PASS | 1.7s |
 | E19 | No uncaught page errors during the run | ✅ PASS | 0.0s |
@@ -80,6 +80,10 @@
 | ✅ | nlu.test.ts > vacation rules > rejects start before cut-off date |
 | ✅ | nlu.test.ts > vacation rules > accepts valid range and gives resume date |
 | ✅ | nlu.test.ts > vacation rules > rejects overlap |
+| ✅ | nlu.test.ts > date edge cases > 28 Nov to 3 Dec keeps the start in November |
+| ✅ | nlu.test.ts > date edge cases > 28th to 3rd rolls the end into the next month |
+| ✅ | nlu.test.ts > date edge cases > reversed explicit dates are flagged, not repaired |
+| ✅ | nlu.test.ts > date edge cases > a second request in one message is detected |
 | ✅ | engine.test.ts > Scenario 1 — product discovery: add two packets of milk > clarifies the milk, then adds after the customer taps Add |
 | ✅ | engine.test.ts > Scenario 2 — subscription modification > shows current → proposed, executes only on confirm, supports undo |
 | ✅ | engine.test.ts > Scenario 2 — subscription modification > 'one more packet' adds one to the current quantity |
@@ -104,6 +108,13 @@
 | ✅ | engine.test.ts > Guardrails > asking the agent to pay is refused (T4) and routed to the customer's own screen |
 | ✅ | engine.test.ts > Guardrails > ambiguous request asks a clarifying question instead of guessing |
 | ✅ | engine.test.ts > Guardrails > unrecognised request falls back with options and a human path |
+| ✅ | engine.test.ts > Edge cases (brief §14.2) > empty cart: says so and offers a next step |
+| ✅ | engine.test.ts > Edge cases (brief §14.2) > cart read-back lists items and total, never checks out |
+| ✅ | engine.test.ts > Edge cases (brief §14.2) > customer changes their mind before confirming: the old proposal is withdrawn |
+| ✅ | engine.test.ts > Edge cases (brief §14.2) > conflicting / combined instructions: one change at a time, second request kept as a chip |
+| ✅ | engine.test.ts > Edge cases (brief §14.2) > invalid dates (end before start) are not guessed |
+| ✅ | engine.test.ts > Edge cases (brief §14.2) > quantity 0 offers pause or remove instead of a change |
+| ✅ | engine.test.ts > Edge cases (brief §14.2) > unusually large quantity is not set automatically |
 
 ## Defects found by testing and fixed
 
@@ -122,11 +133,17 @@
 | D-11 | Impact weights summed to 80% in the prioritisation workbook | LibreOffice recalculation | Weights 30/25/25/20 |
 | D-12 | Asking the agent to pay fell through to “not understood” | Edge-case review (§14.2) | Explicit T4 guardrail: refuses and opens cart / CD Money |
 | D-13 | Demo script step order would have reset the fault toggle | Script review | Order corrected (run scenario, then toggle) |
+| D-14 | “What's in my cart?” fell through to “not understood” | Edge-case probe (§14.2 empty cart) | Cart read-back intent; empty cart says so and offers a next step |
+| D-15 | “Make my cow milk 2 packets” not recognised as a subscription change | Edge-case probe | “make/set” accepted with a subscription word |
+| D-16 | Revising a pending change (“actually make it 3”) was not understood | Edge-case probe (user changes mind) | Old proposal withdrawn (card shows Cancelled, cannot be confirmed), new one proposed |
+| D-17 | Two requests in one message: the second was silently dropped | Edge-case probe (conflicting instructions) | Second request acknowledged and offered as a one-tap chip; one change at a time |
+| D-18 | **Severity high.** Reversed dates (“30 Nov to 25 Nov”) produced a 34-day pause to 25 Dec; “28 Nov to 3 Dec” used December for the start | Edge-case probe (invalid dates) | Reversed ranges are refused with both dates shown; month parsing fixed per side |
+| D-19 | “Set my milk to 0” proposed 2; “50 packets” proposed +1 | Edge-case probe (invalid quantity) | 0 offers pause/remove; unusually large quantities go to a person |
 
 ## Not tested / known limitations
 
 - Real microphone input was not exercised in headless tests (browser speech requires a real device and permission); the simulated tap-to-speak path is covered.
 - Safari/Firefox not tested; Web Speech recognition is Chrome/Edge only (fallback works everywhere).
-- The rule-based parser covers the demo vocabulary and common variants; unusual phrasings fall back to a clarification with options (by design). One intent per turn: a sentence with two requests (“add milk and pause tomorrow”) is handled as the first recognised intent.
+- The rule-based parser covers the demo vocabulary and common variants; unusual phrasings fall back to a clarification with options (by design). One change per turn: when a sentence has two requests (“pause tomorrow and increase my milk”), the agent handles the first and offers the second as a one-tap chip.
 - Instant (30-minute) mode is shown but agent flows use Morning orders.
 

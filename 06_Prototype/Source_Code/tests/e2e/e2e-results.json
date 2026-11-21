@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-11-21T15:26:18.147Z",
+  "ranAt": "2026-11-21T15:37:37.673Z",
   "passed": 19,
   "total": 19,
   "results": [
@@ -7,109 +7,109 @@
       "id": "E01",
       "title": "Home renders seeded state (wallet ₹395, tomorrow 3 items)",
       "status": "PASS",
-      "ms": 128
+      "ms": 125
     },
     {
       "id": "E02",
       "title": "UC3 Scenario 1: add two packets of milk → cart badge 2",
       "status": "PASS",
-      "ms": 1761
+      "ms": 1735
     },
     {
       "id": "E03",
       "title": "UC5 Scenario 2: confirm subscription change, reflected in My Subscriptions, undo restores",
       "status": "PASS",
-      "ms": 3574
+      "ms": 3290
     },
     {
       "id": "E04",
       "title": "UC3 Scenario 3: vacation for next three days via voice card → Vacations screen",
       "status": "PASS",
-      "ms": 2230
+      "ms": 2221
     },
     {
       "id": "E05",
       "title": "UC1 Scenario 4: ₹500 explained as Autopay from ledger (₹78 below ₹200)",
       "status": "PASS",
-      "ms": 1744
+      "ms": 1758
     },
     {
       "id": "E06",
       "title": "UC1: unknown amount is not invented",
       "status": "PASS",
-      "ms": 1359
+      "ms": 1346
     },
     {
       "id": "E07",
       "title": "UC2 Scenario 5: status + POD → policy options → confirm → case created and listed in history",
       "status": "PASS",
-      "ms": 4561
+      "ms": 3849
     },
     {
       "id": "E08",
       "title": "UC2 WhatsApp Hinglish: Hinglish reply with order status",
       "status": "PASS",
-      "ms": 2247
+      "ms": 1749
     },
     {
       "id": "E09",
       "title": "UC2 inbound call: verification before account data, then status",
       "status": "PASS",
-      "ms": 1823
+      "ms": 1840
     },
     {
       "id": "E10",
       "title": "UC6 Scenario 6: consent → goal → diet → peanut allergy → peanut butter excluded",
       "status": "PASS",
-      "ms": 2164
+      "ms": 2163
     },
     {
       "id": "E11",
       "title": "UC4 campaign: voice skipped without consent; in-app push → offer; STOP withdraws consent",
       "status": "PASS",
-      "ms": 1240
+      "ms": 1238
     },
     {
       "id": "E12",
       "title": "Ayuh coexistence: Something else → assistant opens with Ayuh context",
       "status": "PASS",
-      "ms": 563
+      "ms": 553
     },
     {
       "id": "E13",
       "title": "Guardrail: fault injection on confirm → 'nothing was changed', state unchanged",
       "status": "PASS",
-      "ms": 2257
+      "ms": 2132
     },
     {
       "id": "E14",
       "title": "Guardrail: declining a change leaves data unchanged",
       "status": "PASS",
-      "ms": 1288
+      "ms": 1275
     },
     {
       "id": "E15",
       "title": "Manual app flow: Set Vacation sheet blocks > 60 days and accepts a valid range",
       "status": "PASS",
-      "ms": 1400
+      "ms": 923
     },
     {
       "id": "E16",
       "title": "Persistence: subscription change survives a reload; Reset restores seed",
       "status": "PASS",
-      "ms": 4830
+      "ms": 4658
     },
     {
       "id": "E17",
       "title": "Friction: looping My Subscriptions ×3 in 45 s shows one quiet suggestion",
       "status": "PASS",
-      "ms": 467
+      "ms": 486
     },
     {
       "id": "E18",
       "title": "Mobile viewport (390×844): app fills screen, no horizontal scroll, demo button present",
       "status": "PASS",
-      "ms": 1725
+      "ms": 1729
     },
     {
       "id": "E19",

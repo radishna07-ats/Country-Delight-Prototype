@@ -6,7 +6,7 @@ import { addDays, earliestChangeDate, findProducts, isGenericMilk, today, weekda
 export type Intent =
   | "human" | "medical" | "wellness" | "delivery_issue" | "delivery_prefs" | "wallet_deduction" | "wallet_refund"
   | "payment_failed" | "payment_request" | "cashback" | "vip" | "smart_recharge" | "wallet_balance" | "end_vacation" | "vacation" | "pause_subscription"
-  | "remove_subscription" | "change_subscription" | "add_subscription" | "add_to_cart" | "tomorrow_order"
+  | "remove_subscription" | "change_subscription" | "add_subscription" | "add_to_cart" | "cart_view" | "tomorrow_order"
   | "offers" | "navigate" | "greet" | "thanks" | "yes" | "no" | "unknown";
 
 export interface Parsed {
@@ -16,7 +16,13 @@ export interface Parsed {
   delta?: number;            // "one more" → +1, "one less" → −1
   products: Product[];
   genericMilk: boolean;
-  range?: { start: string; end: string; label: string };
+  range?: { start: string; end: string; label: string; invalid?: boolean };
+  /** Set when the customer gave dates that cannot be right (end before start). The agent asks instead of guessing. */
+  badRange?: { start: string; end: string };
+  /** An explicit quantity outside what the agent will set without a person (e.g. "50 packets"). */
+  qtyLimit?: number;
+  /** A second, different request in the same message ("pause deliveries and increase my milk"). Handled one at a time. */
+  also?: { intent: Intent; text: string };
   frequency?: Frequency;
   weekday?: number;
   amount?: number;
@@ -72,11 +78,18 @@ export function parseRange(t: string, clock: string): Parsed["range"] {
     const s = nextWeekday(first, DAYS[m[1]]); const e = nextWeekday(s, DAYS[m[2]]);
     return { start: s, end: e, label: `${cap(m[1])} to ${cap(m[2])}` };
   }
-  m = t.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s*(?:nov(?:ember)?|dec(?:ember)?)?\s*(?:to|till|-)\s*(\d{1,2})(?:st|nd|rd|th)?\s*(nov(?:ember)?|dec(?:ember)?)?/);
-  if (m && /(to|till|-)/.test(m[0]) && /(nov|dec|th|st|nd|rd)/.test(m[0])) {
-    const mon = /dec/.test(m[0]) ? "12" : "11";
-    const s = `2026-${mon}-${m[1].padStart(2, "0")}`; let e = `2026-${/dec/.test(m[3] ?? "") ? "12" : mon}-${m[2].padStart(2, "0")}`;
-    if (e < s) e = addDays(e, 30);
+  m = t.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s*(nov(?:ember)?|dec(?:ember)?)?\s*(?:to|till|-)\s*(\d{1,2})(?:st|nd|rd|th)?\s*(nov(?:ember)?|dec(?:ember)?)?/);
+  if (m && /(nov|dec|th|st|nd|rd)/.test(m[0])) {
+    const mm = (x?: string) => (x && /dec/.test(x) ? "12" : x ? "11" : undefined);
+    let sMon = mm(m[2]) ?? mm(m[4]) ?? "11"; const eMon = mm(m[4]) ?? sMon;
+    const day = (d: string) => d.padStart(2, "0");
+    let s = `2026-${sMon}-${day(m[1])}`; let e = `2026-${eMon}-${day(m[3])}`;
+    if (e < s) {
+      if (m[2] && m[4]) return { start: s, end: e, label: "those dates", invalid: true }; // both months given: genuinely reversed
+      if (!m[2] && m[4] && sMon === "12") { sMon = "11"; s = `2026-11-${day(m[1])}`; } // "28 to 3 Dec" → 28 Nov–3 Dec
+      else if (!m[4]) e = `2026-12-${day(m[3])}`; // "28th to 3rd" → rolls into next month
+      if (e < s) return { start: s, end: e, label: "those dates", invalid: true };
+    }
     return { start: s, end: e, label: "those dates" };
   }
   m = t.match(/\b(?:till|until|upto|up to)\s+(\w+day)\b/);
@@ -103,13 +116,25 @@ const SCREENS: [RegExp, string][] = [
   [/wellness/, "wellness"], [/menu/, "menu"], [/home/, "home"], [/products?|shop/, "products"],
 ];
 
-export function parse(input: string, clock: string): Parsed {
+const ACTIONABLE = new Set<Intent>(["vacation", "pause_subscription", "end_vacation", "remove_subscription", "change_subscription", "add_subscription",
+  "add_to_cart", "wallet_refund", "delivery_issue", "delivery_prefs", "wallet_deduction"]);
+
+const family = (i: Intent) => (i === "pause_subscription" ? "vacation" : i);
+
+export function parse(input: string, clock: string, nested = false): Parsed {
   const t = ` ${lower(input).trim()} `;
   const products = findProducts(input);
   const base: Parsed = { intent: "unknown", text: input, products, genericMilk: isGenericMilk(input), hinglish: HINGLISH.test(t), ...parseFrequency(t) };
   base.qty = parseQty(t);
   base.amount = parseAmount(input);
   base.range = parseRange(t, clock);
+  if (base.range?.invalid) {
+    base.badRange = { start: base.range.start, end: base.range.end };
+    base.range = undefined;
+  }
+  if (/\b(to|make it|set (it )?to|kar do)\s+(0|zero)\b/.test(t)) base.qty = 0;
+  const big = t.match(/\b(\d{2,4})\s*(packets?|packs?|pouches?|units?|bottles?|litres?)\b/);
+  if (big && Number(big[1]) > 20) base.qtyLimit = Number(big[1]);
   if (/\b(one|1|ek)\s+(more|extra|additional|aur)\b|\banother\b|\bek aur\b/.test(t)) base.delta = 1;
   if (/\b(one|1)\s+(less|fewer)\b/.test(t)) base.delta = -1;
   const has = (re: RegExp) => re.test(t);
@@ -137,7 +162,8 @@ export function parse(input: string, clock: string): Parsed {
       return products.length && !has(/\b(deliveries|delivery|everything|all)\b/) ? "pause_subscription" : "vacation";
     }
     if (has(/\b(stop|remove|cancel|discontinue|unsubscribe|don'?t want|band)\b/) && (products.length || base.genericMilk)) return "remove_subscription";
-    if (has(/\b(increase|decrease|reduce|more|extra|another|make it|change|update|modify|less|fewer)\b/) && has(/\b(subscription|regular|daily|usual|every day|quantity|qty|packets?|milk|doodh)\b/)) return "change_subscription";
+    if (has(/\b(what'?s|what is|anything)\b.{0,12}\b(in )?my cart\b|\bcart (total|items)\b|\bmy cart (total|items)\b/)) return "cart_view";
+    if (has(/\b(increase|decrease|reduce|more|extra|another|make it|make|set|change|update|modify|less|fewer)\b/) && has(/\b(subscription|regular|daily|usual|every day|quantity|qty|packets?|milk|doodh)\b/)) return "change_subscription";
     if ((base.frequency && base.frequency !== "once") && (products.length || base.genericMilk) && has(/\b(add|subscribe|start|send|deliver|bhej|chahiye|want|get)\b/)) return "add_subscription";
     if (has(/\b(subscribe|subscription)\b/) && products.length) return "add_subscription";
     if (has(/\b(add|order|buy|get|send|bhej\w*|chahiye|want|need|cart)\b/) && (products.length || base.genericMilk)) return "add_to_cart";
@@ -147,6 +173,14 @@ export function parse(input: string, clock: string): Parsed {
     return "unknown";
   })();
   base.intent = intent;
+  if (!nested && ACTIONABLE.has(intent)) {
+    // One request at a time: spot a second, different request so the agent can acknowledge it instead of silently dropping it.
+    const parts = lower(input).split(/\s*,?\s*\b(?:and also|and then|and|also|then)\b\s*/).map((x) => x.trim()).filter((x) => x.split(/\s+/).length >= 2);
+    if (parts.length > 1) for (const part of parts) {
+      const q = parse(part, clock, true);
+      if (ACTIONABLE.has(q.intent) && family(q.intent) !== family(intent) && !/(\bnot\b|n't\b|\bno\b|\bnahi\b)/.test(part)) { base.also = { intent: q.intent, text: part }; break; }
+    }
+  }
   if (intent === "navigate") base.screen = SCREENS.find(([re]) => re.test(t))?.[1];
   if (intent === "delivery_issue") base.reason =
     /leak/.test(t) ? "leaking" : /damag|broken|crack/.test(t) ? "damaged" : /wrong/.test(t) ? "wrong_item" : /missing/.test(t) ? "missing_item" : /spoil|sour/.test(t) ? "quality" : "not_received";

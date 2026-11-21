@@ -182,3 +182,50 @@ describe("Guardrails", () => {
     expect(last().chips?.map((c: any) => c.label)).toContain("Talk to a person");
   });
 });
+
+describe("Edge cases (brief §14.2)", () => {
+  it("empty cart: says so and offers a next step", async () => {
+    await userSays("What's in my cart?");
+    expect(last().text).toMatch(/cart is empty/);
+  });
+  it("cart read-back lists items and total, never checks out", async () => {
+    await handleEvent({ kind: "add", productId: "cow-milk", qty: 2 });
+    await userSays("What's in my cart?");
+    expect(last().text).toMatch(/2 × Cow Milk/);
+    expect(last().text).toMatch(/Checkout stays with you/);
+  });
+  it("customer changes their mind before confirming: the old proposal is withdrawn", async () => {
+    await userSays("Make my cow milk 2 packets");
+    const first = card("sub_change").changeId;
+    await userSays("Actually make it 3");
+    const cards = ui.get().messages.flatMap((m) => m.cards ?? []).filter((c: any) => c.type === "sub_change");
+    expect(cards.find((c: any) => c.changeId === first)?.state).toBe("cancelled");
+    expect(card("sub_change")).toMatchObject({ toQty: 3, state: "pending" });
+    await handleEvent({ kind: "confirm", changeId: first });
+    expect(sub("cow-milk")!.qty).toBe(1); // stale card cannot apply
+    await handleEvent({ kind: "confirm", changeId: card("sub_change").changeId });
+    expect(sub("cow-milk")!.qty).toBe(3);
+  });
+  it("conflicting / combined instructions: one change at a time, second request kept as a chip", async () => {
+    await userSays("Pause my deliveries for three days and increase my milk");
+    expect(card("vacation").state).toBe("pending");
+    expect(last().text).toMatch(/one change at a time/);
+    expect(last().chips?.[0]?.label).toMatch(/Increase my milk/i);
+    expect(sub("cow-milk")!.qty).toBe(1);
+  });
+  it("invalid dates (end before start) are not guessed", async () => {
+    await userSays("Pause my milk from 30 Nov to 25 Nov");
+    expect(last().text).toMatch(/end date .* is before the start date/);
+    expect(db.get().vacations).toHaveLength(0);
+  });
+  it("quantity 0 offers pause or remove instead of a change", async () => {
+    await userSays("Set my milk to 0");
+    expect(last().text).toMatch(/would stop it/);
+    expect(card("sub_change")).toBeUndefined();
+  });
+  it("unusually large quantity is not set automatically", async () => {
+    await userSays("Make my milk 50 packets");
+    expect(last().text).toMatch(/unusually large/);
+    expect(sub("cow-milk")!.qty).toBe(1);
+  });
+});
