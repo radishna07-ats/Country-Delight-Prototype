@@ -53,6 +53,7 @@ MANUAL = [
     ("F07", "Financial QA", "Sensitivity cases move in the expected direction", "22 cases at +/-25%", "Higher margin/ARPU raise net; higher cost lowers it", "PASS", "Sensitivity sheet"),
     ("D01", "Deliverable QA", "Deck validates and renders", "pptx validate.py; LibreOffice render of 30 slides", "Validation passed; no overflow after fixes", "PASS", "CountryDelight_Sales_Deck.pptx"),
     ("D02", "Deliverable QA", "Word documents render", "LibreOffice PDF render and page review", "Pitch and CTO guide render without overflow", "PASS", "07_Sales_Enablement"),
+    ("C03", "Claims QA", "Prototype disclosed as simulated wherever shown", "Search deck, pitch and CTO guide text for the disclosure", "Present on every prototype screen and in both documents", "PASS", "Defect D-21 fixed"),
     ("D03", "Deliverable QA", "Register workbooks recalculate", "Recalc summary counts", "Counts by evidence class correct", "PASS", "Evidence_Register.xlsx"),
     ("D04", "Deliverable QA", "Internal links resolve", "Check relative links in all .md files", "No broken links", "PASS", "QA_Report.md section 7"),
     ("P01", "Privacy QA", "No PII from the screen recording", "Search all files for phone and address strings seen in the recording", "0 matches; frames with PII not stored", "PASS", "QA_Report.md section 5"),

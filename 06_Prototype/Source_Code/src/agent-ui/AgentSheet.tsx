@@ -15,7 +15,7 @@ export function MessageList({ msgs, ch, thinking }: { msgs: Msg[]; ch: Channel; 
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { end.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [msgs.length, thinking]);
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-3" role="log" aria-live="polite" aria-label="Conversation with the assistant">
       {msgs.map((m) => m.role === "user" ? (
         <div key={m.id} className="ml-auto max-w-[82%] rounded-2xl rounded-br-md bg-cd-green text-white px-3 py-2 text-[13px] animate-rise" data-testid="msg-user">{m.text}</div>
       ) : (

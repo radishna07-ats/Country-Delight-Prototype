@@ -1,6 +1,6 @@
 # Prototype Test Results
 
-**Run:** 2026-11-21 15:37 UTC · Node 22 · Chromium (Playwright) · Vite 5.4.11
+**Run:** 2026-11-21 15:39 UTC · Node 22 · Chromium (Playwright) · Vite 5.4.11
 
 | Suite | Passed | Total |
 |---|---|---|
@@ -14,21 +14,21 @@
 | ID | Test | Result | Time |
 |---|---|---|---|
 | E01 | Home renders seeded state (wallet ₹395, tomorrow 3 items) | ✅ PASS | 0.1s |
-| E02 | UC3 Scenario 1: add two packets of milk → cart badge 2 | ✅ PASS | 1.7s |
-| E03 | UC5 Scenario 2: confirm subscription change, reflected in My Subscriptions, undo restores | ✅ PASS | 3.3s |
-| E04 | UC3 Scenario 3: vacation for next three days via voice card → Vacations screen | ✅ PASS | 2.2s |
+| E02 | UC3 Scenario 1: add two packets of milk → cart badge 2 | ✅ PASS | 1.8s |
+| E03 | UC5 Scenario 2: confirm subscription change, reflected in My Subscriptions, undo restores | ✅ PASS | 3.4s |
+| E04 | UC3 Scenario 3: vacation for next three days via voice card → Vacations screen | ✅ PASS | 2.3s |
 | E05 | UC1 Scenario 4: ₹500 explained as Autopay from ledger (₹78 below ₹200) | ✅ PASS | 1.8s |
-| E06 | UC1: unknown amount is not invented | ✅ PASS | 1.3s |
-| E07 | UC2 Scenario 5: status + POD → policy options → confirm → case created and listed in history | ✅ PASS | 3.8s |
-| E08 | UC2 WhatsApp Hinglish: Hinglish reply with order status | ✅ PASS | 1.7s |
-| E09 | UC2 inbound call: verification before account data, then status | ✅ PASS | 1.8s |
-| E10 | UC6 Scenario 6: consent → goal → diet → peanut allergy → peanut butter excluded | ✅ PASS | 2.2s |
+| E06 | UC1: unknown amount is not invented | ✅ PASS | 0.8s |
+| E07 | UC2 Scenario 5: status + POD → policy options → confirm → case created and listed in history | ✅ PASS | 4.3s |
+| E08 | UC2 WhatsApp Hinglish: Hinglish reply with order status | ✅ PASS | 2.3s |
+| E09 | UC2 inbound call: verification before account data, then status | ✅ PASS | 1.9s |
+| E10 | UC6 Scenario 6: consent → goal → diet → peanut allergy → peanut butter excluded | ✅ PASS | 1.7s |
 | E11 | UC4 campaign: voice skipped without consent; in-app push → offer; STOP withdraws consent | ✅ PASS | 1.2s |
-| E12 | Ayuh coexistence: Something else → assistant opens with Ayuh context | ✅ PASS | 0.6s |
-| E13 | Guardrail: fault injection on confirm → 'nothing was changed', state unchanged | ✅ PASS | 2.1s |
+| E12 | Ayuh coexistence: Something else → assistant opens with Ayuh context | ✅ PASS | 0.5s |
+| E13 | Guardrail: fault injection on confirm → 'nothing was changed', state unchanged | ✅ PASS | 2.2s |
 | E14 | Guardrail: declining a change leaves data unchanged | ✅ PASS | 1.3s |
-| E15 | Manual app flow: Set Vacation sheet blocks > 60 days and accepts a valid range | ✅ PASS | 0.9s |
-| E16 | Persistence: subscription change survives a reload; Reset restores seed | ✅ PASS | 4.7s |
+| E15 | Manual app flow: Set Vacation sheet blocks > 60 days and accepts a valid range | ✅ PASS | 1.4s |
+| E16 | Persistence: subscription change survives a reload; Reset restores seed | ✅ PASS | 4.6s |
 | E17 | Friction: looping My Subscriptions ×3 in 45 s shows one quiet suggestion | ✅ PASS | 0.5s |
 | E18 | Mobile viewport (390×844): app fills screen, no horizontal scroll, demo button present | ✅ PASS | 1.7s |
 | E19 | No uncaught page errors during the run | ✅ PASS | 0.0s |
@@ -139,6 +139,8 @@
 | D-17 | Two requests in one message: the second was silently dropped | Edge-case probe (conflicting instructions) | Second request acknowledged and offered as a one-tap chip; one change at a time |
 | D-18 | **Severity high.** Reversed dates (“30 Nov to 25 Nov”) produced a 34-day pause to 25 Dec; “28 Nov to 3 Dec” used December for the start | Edge-case probe (invalid dates) | Reversed ranges are refused with both dates shown; month parsing fixed per side |
 | D-19 | “Set my milk to 0” proposed 2; “50 packets” proposed +1 | Edge-case probe (invalid quantity) | 0 offers pause/remove; unusually large quantities go to a person |
+| D-20 | Agent replies were not announced to screen readers | Accessibility review (§14.4) | Conversation is a `role="log"` polite live region |
+| D-21 | Deck, pitch and CTO guide said “working prototype” without stating that it runs on simulated data | Claims audit (§19 “no misleading production claims”) | Caption on every prototype screen in the deck, disclosure in the executive summary, and a “say once” line in the pitch and CTO guide |
 
 ## Not tested / known limitations
 

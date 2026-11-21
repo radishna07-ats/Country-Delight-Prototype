@@ -112,7 +112,7 @@ async function icon(Comp, color, size = 256) {
   const exec = [
     [IC.star, "Customers love the product and the morning ritual", "They leave over what happens after the order: unexplained money movements, a bad morning with no one to talk to, and changes that feel risky."],
     [IC.comments, "A grounded assistance layer — in-app, WhatsApp, voice", "It explains from your systems, acts only through declared actions with confirmation, and hands off to people. Ayuh stays."],
-    [IC.video, "A working prototype of all six use cases", "Wallet, delivery issues, in-app agent, offers, conversational subscriptions and a wellness journey — with every guardrail visible."],
+    [IC.video, "A working prototype of all six use cases", "Wallet, delivery issues, in-app agent, offers, conversational subscriptions and wellness, with every guardrail visible. It runs on simulated data: nothing is connected to your systems yet."],
     [IC.flask, "A pilot that needs no app release", "Wallet and delivery help on WhatsApp and out-of-hours voice in one city, measured against a control group."],
   ];
   exec.forEach(([ic, h, b], i) => {
@@ -251,7 +251,8 @@ async function icon(Comp, color, size = 256) {
   const ucSlide = (kicker, title, shots, blocks, status, channels, notes) => {
     const sl = content("The proposed experience", kicker, title);
     let x = 0.6;
-    shots.forEach((f, i) => { phone(sl, f, x, 1.65, 5.2, `uc-phone-${i}`); x += 2.55; });
+    shots.forEach((f, i) => { phone(sl, f, x, 1.65, 5.0, `uc-phone-${i}`); x += 2.55; });
+    txt(sl, shots.length > 1 ? "Prototype screen · simulated data, not connected to Country Delight systems" : "Prototype screen · simulated data", { x: 0.6, y: 6.68, w: shots.length * 2.55 - 0.24, h: 0.28, fontSize: 9, italic: true, color: C.accent6, objectName: "uc-sim-caption" });
     const tx = 0.6 + shots.length * 2.55 + 0.25; const tw = 12.7 - tx;
     pill(sl, status, tx, 1.75, 1.6, status.startsWith("Pilot") ? C.accent2 : status.startsWith("Phase 2") ? C.accent4 : C.accent6, "uc-status");
     txt(sl, channels, { x: tx + 1.75, y: 1.78, w: tw - 1.75, h: 0.3, fontSize: 12, color: C.accent6, objectName: "uc-channels" });
@@ -304,7 +305,8 @@ async function icon(Comp, color, size = 256) {
 
   // ================================================================= 19 Ayuh + additional
   s = content("The proposed experience", "AYUH & MORE OPPORTUNITIES", "Ayuh stays — plus seven more opportunities we found");
-  phone(s, "14_ayuh_handoff.png", 0.6, 1.65, 5.2, "ayuh-phone");
+  phone(s, "14_ayuh_handoff.png", 0.6, 1.65, 5.0, "ayuh-phone");
+  txt(s, "Prototype screen · simulated data", { x: 0.6, y: 6.68, w: 2.4, h: 0.28, fontSize: 9, italic: true, color: C.accent6, objectName: "ayuh-sim-caption" });
   const H3 = { bold: true, color: C.background1, fill: { color: C.text2 }, fontSize: 13 };
   s.addTable([
     [{ text: "Opportunity", options: H3 }, { text: "Verdict", options: H3 }, { text: "Why", options: H3 }],
