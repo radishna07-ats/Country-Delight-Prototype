@@ -164,11 +164,7 @@ cd 06_Prototype/Source_Code && npm install && npm test && npm run typecheck && n
 ```
 
 ```bash
-cd 06_Prototype/Source_Code && npm run preview   # in one terminal
-```
-
-```bash
-cd 06_Prototype/Source_Code && npm run test:e2e  # in a second terminal (needs Playwright + Chromium)
+cd 06_Prototype/Source_Code && npm run test:e2e   # after the build; starts its own preview server (needs Playwright + Chromium)
 ```
 
 ```bash
