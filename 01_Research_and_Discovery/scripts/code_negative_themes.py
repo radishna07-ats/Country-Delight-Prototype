@@ -1,4 +1,5 @@
-import json,re,collections,random
+import json,re,collections,os,random
+D=os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","data")
 NEG={
 'N01 Price, value & pack size':r"price|pric(ey|y)|expensive|costly|cost |rate (is|are)|\brates?\b|mehanga|overpric|450 ?ml|500 ?ml|850|pack size|standard (size|quantit|weight)|odd|225 ?g|cheaper|hike|increas|afford|अफोर्ड|double rate|2-3x|market price",
 'N02 VIP membership pressure & benefit caps':r"\bvip\b|membership|prime member|free vip|trial page|subscribe vip|forces? (you|users|to)|force to|forcing|dark pattern",
@@ -19,7 +20,7 @@ def codes(t,TT):
     t=(t or '').lower(); out=[k for k,p in TT.items() if re.search(p,t)]
     if 'N08 Product quality, freshness & damage' in out and POSQ.search(t) and not re.search(r"stale|rotten|spoil|sour|leak|damag|expir|watery|adulter|deteriorat|degrad|poor quality|bad quality|worse",t): out.remove('N08 Product quality, freshness & damage')
     return out
-pn=json.load(open('reviews.json')); io=json.load(open('ios_reviews.json'))
+pn=json.load(open(os.path.join(D,'play_newest_1200.json'))); io=json.load(open(os.path.join(D,'appstore_recent_500.json')))
 neg_p=[r for r in pn if r['score']<=2]; neg_i=[r for r in io if r['score']<=2]
 res={}
 for name,data in [('play',neg_p),('ios',neg_i)]:
@@ -31,10 +32,10 @@ for name,data in [('play',neg_p),('ios',neg_i)]:
     res[name]=(len(data),c,unc,coded)
     print(f"\n{name} negatives n={len(data)} uncoded={unc}")
     for k in NEG: print(f"  {k:62s} {c[k]:4d}  {100*c[k]/len(data):5.1f}%")
-json.dump({n:{'n':v[0],'uncoded':v[2],'counts':dict(v[1])} for n,v in res.items()},open('neg_counts.json','w'),indent=1)
+json.dump({n:{'n':v[0],'uncoded':v[2],'counts':dict(v[1])} for n,v in res.items()},open(os.path.join(D,'negative_theme_counts.json'),'w'),indent=1)
 # precision sample
 random.seed(7); samp=random.sample([x for x in res['play'][3] if x[1] and len(x[0]['text'] or '')>40],45)
-with open('precision_sample.txt','w') as f:
+with open(os.path.join(D,'precision_sample.txt'),'w') as f:
     for r,cs in samp: f.write(f"{r['id'][:12]}|{r['score']}|{'; '.join(c[:3] for c in cs)}|{(r['text'] or '')[:240]}\n")
 # exemplar store
-json.dump([{'id':r['id'],'date':r['date'],'score':r['score'],'text':r['text'],'codes':cs} for r,cs in res['play'][3]+res['ios'][3]],open('neg_coded.json','w'),indent=0)
+json.dump([{'id':r['id'],'date':r['date'],'score':r['score'],'text':r['text'],'codes':cs} for r,cs in res['play'][3]+res['ios'][3]],open(os.path.join(D,'negative_reviews_coded.json'),'w'),indent=0)

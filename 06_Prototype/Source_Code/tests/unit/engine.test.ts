@@ -155,4 +155,30 @@ describe("Guardrails", () => {
     expect(sub("low-fat-dahi")).toBeTruthy();
     expect(last().chips?.map((c: any) => c.label)).toContain("Going away for a while");
   });
+  it("duplicate confirmation does not apply the change twice", async () => {
+    await userSays("Increase my daily milk quantity");
+    const id = card("sub_change").changeId;
+    await handleEvent({ kind: "confirm", changeId: id });
+    await handleEvent({ kind: "confirm", changeId: id });
+    expect(sub("cow-milk")!.qty).toBe(2);
+    expect(last().text).toMatch(/already done/);
+  });
+  it("unavailable product is refused with a reason, cart unchanged", async () => {
+    await handleEvent({ kind: "add", productId: "spinach", qty: 1 });
+    expect(db.get().cart).toHaveLength(0);
+    expect(last().text).toMatch(/not available/);
+  });
+  it("asking the agent to pay is refused (T4) and routed to the customer's own screen", async () => {
+    await userSays("Please pay for my order");
+    expect(last().text).toMatch(/can't make payments/);
+  });
+  it("ambiguous request asks a clarifying question instead of guessing", async () => {
+    await userSays("Add milk");
+    expect(last().text).toMatch(/Which milk/);
+    expect(db.get().cart).toHaveLength(0);
+  });
+  it("unrecognised request falls back with options and a human path", async () => {
+    await userSays("blorp the frobnicator");
+    expect(last().chips?.map((c: any) => c.label)).toContain("Talk to a person");
+  });
 });

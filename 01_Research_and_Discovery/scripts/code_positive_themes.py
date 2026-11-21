@@ -1,4 +1,5 @@
-import json,re,collections
+import json,re,collections,os,random
+D=os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","data")
 POS={
 'P01 Milk & product quality, freshness, taste':r"quality|fresh|pure|taste|tasty|creamy|thick|malai|natural|healthy|best milk|good milk|nice milk|unadulter|no preservative|lab",
 'P02 Reliable early-morning delivery':r"on time|timely|punctual|early|morning|before 7|7 ?am|daily|every day|everyday|reliab|consisten|never miss|regular",
@@ -9,7 +10,7 @@ POS={
 'P07 Value, VIP & offers':r"vip|saving|save|discount|offer|value for money|affordable|cashback|price",
 'P08 Product range & groceries':r"variety|range|vegetable|fruit|grocer|paneer|curd|ghee|coconut|products",
 }
-pn=json.load(open('reviews.json')); io=json.load(open('ios_reviews.json'))
+pn=json.load(open(os.path.join(D,'play_newest_1200.json'))); io=json.load(open(os.path.join(D,'appstore_recent_500.json')))
 for name,data in [('play',[r for r in pn if r['score']>=4]),('ios',[r for r in io if r['score']>=4])]:
     c=collections.Counter(); sub=[r for r in data if len((r.get('title') or '')+(r['text'] or ''))>=20]
     for r in sub:

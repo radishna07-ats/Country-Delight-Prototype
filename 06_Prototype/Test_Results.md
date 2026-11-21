@@ -1,34 +1,34 @@
 # Prototype Test Results
 
-**Run:** 2026-11-21 15:08 UTC · Node 22 · Chromium (Playwright) · build `vite 5.4.11`
+**Run:** 2026-11-21 15:26 UTC · Node 22 · Chromium (Playwright) · Vite 5.4.11
 
 | Suite | Passed | Total |
 |---|---|---|
-| Unit & scenario tests (Vitest) | 62 | 62 |
+| Unit & scenario tests (Vitest) | 67 | 67 |
 | End-to-end UI tests (Playwright) | 19 | 19 |
 | TypeScript strict typecheck | pass | — |
-| Production build | pass (371 kB JS, 113 kB gzip) | — |
+| Production build | pass | — |
 
 ## End-to-end UI tests
 
 | ID | Test | Result | Time |
 |---|---|---|---|
 | E01 | Home renders seeded state (wallet ₹395, tomorrow 3 items) | ✅ PASS | 0.1s |
-| E02 | UC3 Scenario 1: add two packets of milk → cart badge 2 | ✅ PASS | 1.7s |
-| E03 | UC5 Scenario 2: confirm subscription change, reflected in My Subscriptions, undo restores | ✅ PASS | 3.4s |
+| E02 | UC3 Scenario 1: add two packets of milk → cart badge 2 | ✅ PASS | 1.8s |
+| E03 | UC5 Scenario 2: confirm subscription change, reflected in My Subscriptions, undo restores | ✅ PASS | 3.6s |
 | E04 | UC3 Scenario 3: vacation for next three days via voice card → Vacations screen | ✅ PASS | 2.2s |
-| E05 | UC1 Scenario 4: ₹500 explained as Autopay from ledger (₹78 below ₹200) | ✅ PASS | 1.8s |
+| E05 | UC1 Scenario 4: ₹500 explained as Autopay from ledger (₹78 below ₹200) | ✅ PASS | 1.7s |
 | E06 | UC1: unknown amount is not invented | ✅ PASS | 1.4s |
-| E07 | UC2 Scenario 5: status + POD → policy options → confirm → case created and listed in history | ✅ PASS | 4.3s |
+| E07 | UC2 Scenario 5: status + POD → policy options → confirm → case created and listed in history | ✅ PASS | 4.6s |
 | E08 | UC2 WhatsApp Hinglish: Hinglish reply with order status | ✅ PASS | 2.2s |
 | E09 | UC2 inbound call: verification before account data, then status | ✅ PASS | 1.8s |
-| E10 | UC6 Scenario 6: consent → goal → diet → peanut allergy → peanut butter excluded | ✅ PASS | 2.1s |
+| E10 | UC6 Scenario 6: consent → goal → diet → peanut allergy → peanut butter excluded | ✅ PASS | 2.2s |
 | E11 | UC4 campaign: voice skipped without consent; in-app push → offer; STOP withdraws consent | ✅ PASS | 1.2s |
 | E12 | Ayuh coexistence: Something else → assistant opens with Ayuh context | ✅ PASS | 0.6s |
-| E13 | Guardrail: fault injection on confirm → 'nothing was changed', state unchanged | ✅ PASS | 2.1s |
+| E13 | Guardrail: fault injection on confirm → 'nothing was changed', state unchanged | ✅ PASS | 2.3s |
 | E14 | Guardrail: declining a change leaves data unchanged | ✅ PASS | 1.3s |
-| E15 | Manual app flow: Set Vacation sheet blocks > 60 days and accepts a valid range | ✅ PASS | 1.5s |
-| E16 | Persistence: subscription change survives a reload; Reset restores seed | ✅ PASS | 4.6s |
+| E15 | Manual app flow: Set Vacation sheet blocks > 60 days and accepts a valid range | ✅ PASS | 1.4s |
+| E16 | Persistence: subscription change survives a reload; Reset restores seed | ✅ PASS | 4.8s |
 | E17 | Friction: looping My Subscriptions ×3 in 45 s shows one quiet suggestion | ✅ PASS | 0.5s |
 | E18 | Mobile viewport (390×844): app fills screen, no horizontal scroll, demo button present | ✅ PASS | 1.7s |
 | E19 | No uncaught page errors during the run | ✅ PASS | 0.0s |
@@ -99,6 +99,11 @@
 | ✅ | engine.test.ts > Guardrails > failed write: says nothing changed and offers retry |
 | ✅ | engine.test.ts > Guardrails > human handoff creates a case |
 | ✅ | engine.test.ts > Guardrails > cancellation save flow offers alternatives before removing |
+| ✅ | engine.test.ts > Guardrails > duplicate confirmation does not apply the change twice |
+| ✅ | engine.test.ts > Guardrails > unavailable product is refused with a reason, cart unchanged |
+| ✅ | engine.test.ts > Guardrails > asking the agent to pay is refused (T4) and routed to the customer's own screen |
+| ✅ | engine.test.ts > Guardrails > ambiguous request asks a clarifying question instead of guessing |
+| ✅ | engine.test.ts > Guardrails > unrecognised request falls back with options and a human path |
 
 ## Defects found by testing and fixed
 
@@ -115,10 +120,13 @@
 | D-09 | Duplicate Confirm/Cancel (card + chips) in-app | Visual QA | Chips suppressed in-app when the card has actions |
 | D-10 | Calendar ended 31 Dec, so the 60-day rule could not be exercised in the app | E2E E15 | Calendar extended to Feb 2027 |
 | D-11 | Impact weights summed to 80% in the prioritisation workbook | LibreOffice recalculation | Weights 30/25/25/20 |
+| D-12 | Asking the agent to pay fell through to “not understood” | Edge-case review (§14.2) | Explicit T4 guardrail: refuses and opens cart / CD Money |
+| D-13 | Demo script step order would have reset the fault toggle | Script review | Order corrected (run scenario, then toggle) |
 
 ## Not tested / known limitations
 
 - Real microphone input was not exercised in headless tests (browser speech requires a real device and permission); the simulated tap-to-speak path is covered.
 - Safari/Firefox not tested; Web Speech recognition is Chrome/Edge only (fallback works everywhere).
-- The rule-based parser covers the demo vocabulary and common variants; unusual phrasings fall back to a clarification with options (by design).
+- The rule-based parser covers the demo vocabulary and common variants; unusual phrasings fall back to a clarification with options (by design). One intent per turn: a sentence with two requests (“add milk and pause tomorrow”) is handled as the first recognised intent.
 - Instant (30-minute) mode is shown but agent flows use Morning orders.
+

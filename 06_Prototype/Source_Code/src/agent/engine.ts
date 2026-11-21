@@ -131,6 +131,10 @@ async function route(p: Parsed, ch: Channel, subIdHint?: string) {
     case "wallet_refund": return walletRefund(ch);
     case "payment_failed": return paymentFailed(ch);
     case "cashback": return cashbackInfo(ch);
+    case "payment_request":
+      logCall({ name: "guardrail: payment requested — agent never pays (T4)", kind: "guardrail", status: "refused", channel: ch });
+      return say(ch, "I can't make payments or place orders for you — that always stays with you in Country Delight's own screens. I can open your cart or CD Money so you can do it in a tap.", undefined,
+        [chip("Open cart", { kind: "navigate", screen: "cart" }), chip("Open CD Money", { kind: "navigate", screen: "cdmoney" })]);
     case "vip": return vipInfo(ch);
     case "smart_recharge": return smartRecharge(p, ch);
     case "vacation": return vacation(p, ch);

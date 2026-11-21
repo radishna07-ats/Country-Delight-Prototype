@@ -208,7 +208,7 @@
 "id": "96dbfb47-5b5f-43a1-ac77-563c56cf992b",
 "date": "2026-11-12T01:30:11.163Z",
 "score": 1,
-"text": "Dear developer give an push notification to user once the order is delivered from app please make this feature",
+"text": "Dear [name] give an push notification to user once the order is delivered from app please make this feature",
 "codes": []
 },
 {
@@ -1065,7 +1065,7 @@
 "id": "28b5bb4f-792e-400d-96b9-0b91c2175bd9",
 "date": "2026-10-04T17:14:40.358Z",
 "score": 1,
-"text": "Hi Kalikiri Location Not Received",
+"text": "Hi [name] Location Not Received",
 "codes": [
 "N06 Delivery reliability (missed, false \"delivered\", late, cancelled)",
 "N12 Serviceability (area not covered)"
@@ -1244,7 +1244,7 @@
 "id": "6f0f90f4-493a-4e34-bcef-1b8ef1606872",
 "date": "2026-10-01T05:12:37.615Z",
 "score": 1,
-"text": "Hello Guys I'm purchasing milk from a local shop and after buying from country Delight. product quality are some And this app service has too many problems so guys genuinely I am suggesting not to download this app and order the products This app does only doing good advertisement \ud83d\ude21",
+"text": "Hello [name] I'm purchasing milk from a local shop and after buying from country Delight. product quality are some And this app service has too many problems so guys genuinely I am suggesting not to download this app and order the products This app does only doing good advertisement \ud83d\ude21",
 "codes": [
 "N08 Product quality, freshness & damage"
 ]

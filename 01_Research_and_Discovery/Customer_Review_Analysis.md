@@ -13,7 +13,7 @@
 
 - **Sample A is the primary dataset** (unbiased by helpfulness sort, most recent, largest). Sample B was used only for reading; it is not used in any percentage.
 - **Reddit could not be accessed** from this environment (HTTP 403). Web search found no substantive Reddit threads; public complaint sites (consumercomplaints.in, voxya.com) were reviewed qualitatively (R-30, R-31). No Reddit claim is made.
-- Reviewer names and avatars were **not collected**. Review IDs, dates, ratings, text and CD's reply are retained for traceability.
+- Reviewer names and avatars were **not collected**. Review IDs, dates, ratings, text and Country Delight's public reply are retained for traceability; first names in reply salutations, phone numbers and personal emails were redacted to `[name]`, `[phone]`, `[email]`.
 - We have **read and hand-reviewed all 480 one- and two-star reviews in Sample A** (412 of them have ≥25 characters) and all 153 one- and two-star reviews in Sample C. We have **not** audited "hundreds of thousands" of ratings; the lifetime histogram is used only as context.
 
 ### Context: ratings vs written reviews

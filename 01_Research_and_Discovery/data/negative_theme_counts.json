@@ -1,0 +1,40 @@
+{
+ "play": {
+  "n": 480,
+  "uncoded": 120,
+  "counts": {
+   "N02 VIP membership pressure & benefit caps": 54,
+   "N11 App usability, performance & login": 49,
+   "N07 Doorstep experience (5 AM, calls, left outside, behaviour)": 30,
+   "N08 Product quality, freshness & damage": 126,
+   "N09 Customer support access & resolution": 87,
+   "N03 Wallet deductions, balance & refunds": 80,
+   "N04 Recharge, payment & autopay friction": 40,
+   "N01 Price, value & pack size": 72,
+   "N10 Subscription, vacation & schedule control": 64,
+   "N05 Offers, cashback & referral disputes": 43,
+   "N06 Delivery reliability (missed, false \"delivered\", late, cancelled)": 49,
+   "N12 Serviceability (area not covered)": 23,
+   "N13 Unwanted calls & messages": 9
+  }
+ },
+ "ios": {
+  "n": 153,
+  "uncoded": 19,
+  "counts": {
+   "N01 Price, value & pack size": 38,
+   "N03 Wallet deductions, balance & refunds": 42,
+   "N08 Product quality, freshness & damage": 51,
+   "N09 Customer support access & resolution": 50,
+   "N10 Subscription, vacation & schedule control": 24,
+   "N04 Recharge, payment & autopay friction": 21,
+   "N11 App usability, performance & login": 21,
+   "N02 VIP membership pressure & benefit caps": 27,
+   "N05 Offers, cashback & referral disputes": 15,
+   "N06 Delivery reliability (missed, false \"delivered\", late, cancelled)": 23,
+   "N07 Doorstep experience (5 AM, calls, left outside, behaviour)": 13,
+   "N12 Serviceability (area not covered)": 4,
+   "N13 Unwanted calls & messages": 4
+  }
+ }
+}
