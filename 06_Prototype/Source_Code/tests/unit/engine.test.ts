@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db, ui, resetDemo } from "../../src/backend/store";
 import { handleEvent, resetEngine, userSays } from "../../src/agent/engine";
 
-const last = () => ui.get().messages.filter((m) => m.role === "agent").slice(-1)[0];
-const card = (type: string) => [...ui.get().messages].reverse().flatMap((m) => m.cards ?? []).find((c) => c.type === type);
+const last = (): any => ui.get().messages.filter((m) => m.role === "agent").slice(-1)[0];
+const card = (type: string): any => [...ui.get().messages].reverse().flatMap((m) => m.cards ?? []).find((c) => c.type === type);
 const sub = (productId: string) => db.get().subscriptions.find((s) => s.productId === productId && s.status !== "removed");
 
 beforeEach(() => { resetDemo(); resetEngine(); ui.set((s) => ({ ...s, channel: "inapp", faults: { failNext: false, slow: false } })); });
@@ -153,6 +153,6 @@ describe("Guardrails", () => {
   it("cancellation save flow offers alternatives before removing", async () => {
     await userSays("Stop my curd");
     expect(sub("low-fat-dahi")).toBeTruthy();
-    expect(last().chips?.map((c) => c.label)).toContain("Going away for a while");
+    expect(last().chips?.map((c: any) => c.label)).toContain("Going away for a while");
   });
 });

@@ -130,6 +130,8 @@ async function route(p: Parsed, ch: Channel, subIdHint?: string) {
     case "wallet_deduction": return walletDeduction(p, ch);
     case "wallet_refund": return walletRefund(ch);
     case "payment_failed": return paymentFailed(ch);
+    case "cashback": return cashbackInfo(ch);
+    case "vip": return vipInfo(ch);
     case "smart_recharge": return smartRecharge(p, ch);
     case "vacation": return vacation(p, ch);
     case "pause_subscription": return pauseSub(p, ch, subIdHint);
@@ -217,7 +219,7 @@ function addToCart(p: Parsed, ch: Channel) {
   if (p.genericMilk && !p.products.some((x) => x.id !== "cow-milk" && MILK_VARIANT_IDS.includes(x.id))) {
     awaiting = { intent: "pick_milk_cart", qty };
     const usual = activeSubs().find((s) => MILK_VARIANT_IDS.includes(s.productId))?.productId ?? "cow-milk";
-    const ids = [usual, ...MILK_VARIANT_IDS.filter((i) => i !== usual)];
+    const ids = [usual, ...MILK_VARIANT_IDS.filter((i) => i !== usual)].slice(0, 4);
     return say(ch, L(`Sure. Which milk would you like — your usual ${byId(usual).name} ${byId(usual).size}, or another one? I'll add ${qty} ${qty > 1 ? "packets" : "packet"} for ${fmtDate(earliestChangeDate(db.get().clock))}.`,
       `Zaroor. Kaunsa doodh — aapka usual ${byId(usual).name}, ya koi aur? Main ${qty} packet add kar dungi.`),
       [{ type: "products", mode: "add", items: ids.map((id) => ({ productId: id, qty, usual: id === usual })), date: earliestChangeDate(db.get().clock) }],
@@ -599,6 +601,24 @@ async function paymentFailed(ch: Channel) {
     : "I don't see any recharge attempts in the last 14 days.", undefined, [chip("Show transactions", { kind: "navigate", screen: "transactions" }), sayChip("Talk to a person", "I want to talk to a person")]);
 }
 
+async function cashbackInfo(ch: Channel) {
+  const r = await api.list_wallet_transactions(ch, { direction: "credit", days: 30 });
+  if (r.status !== "ok") return toolDown(ch);
+  const cbs = (r.data as Txn[]).filter((t) => t.type === "cashback");
+  if (!cbs.length) return say(ch, "I don't see any cashback credited in the last 30 days. If you were promised one, a person can check the offer terms with you.", undefined, [sayChip("Talk to a person", "I want to talk to a person")]);
+  return say(ch, `In the last 30 days you received ${cbs.map((c) => `${rupees(c.amount)} (${c.title}, ${fmtDate(c.ts)})`).join(", ")}. Smart Recharge cashback is split across your next orders (for example ₹50 on each of the next 5), so part of it can still be on its way. Is a specific cashback missing?`,
+    [{ type: "txn_list", txnIds: cbs.map((c) => c.id) }], [sayChip("Talk to a person", "I want to talk to a person"), sayChip("Smart Recharge options", "What is Smart Recharge?")]);
+}
+
+async function vipInfo(ch: Channel) {
+  const r = await api.get_customer_profile(ch);
+  if (r.status !== "ok") return toolDown(ch);
+  const v = (r.data as any).vip;
+  if (!v.active) return say(ch, "You don't have an active VIP membership. VIP gives member prices in exchange for a membership fee; the plans are in the app's VIP section.");
+  return say(ch, `Your ${v.plan} is active until ${fmtDate(v.validTill)}. ${RULE_TEXT["R-VIP"]} You have ${rupees(v.benefitLeft)} of ${rupees(v.benefitTotal)} benefit left, so it could end earlier than ${fmtDate(v.validTill)} if you use it up. Auto-renew is ${v.autoRenew ? "on" : "off"}.`,
+    [{ type: "wallet_summary", balance: db.get().wallet.balance, vip: v, autopay: db.get().wallet.autopay, runwayDays: null, perDay: null }]);
+}
+
 async function walletRefund(ch: Channel) {
   const d = db.get();
   const cashback = d.txns.filter((t) => t.type === "cashback").reduce((s, t) => s + t.amount, 0);
@@ -836,7 +856,7 @@ export function outreachOpener(offerId: string, ch: Channel) {
   logCall({ name: "disclosure: AI assistant", kind: "guardrail", status: "ok", channel: ch });
   const text = ch === "voice"
     ? `Hello ${c.firstName}, this is Country Delight's AI assistant — an automated call. Is this a good time for one minute about an offer on your account?`
-    : `Hi ${c.firstName} 👋 This is Country Delight's AI assistant. Because you get Cow Milk daily, you're eligible for “${o.name}”: ${o.benefit}, valid till ${fmtDate(o.validTill)}. Reply STOP to opt out.`;
+    : `Hi ${c.firstName} 👋 This is Country Delight's AI assistant. Because you get Cow Milk daily, you're eligible for “${o.name}”: ${o.benefit}, valid till ${fmtDate(o.validTill)}. ${ch === "whatsapp" ? "Reply STOP to opt out." : "Tap STOP if you'd rather not see offers here."}`;
   return say(ch, text, ch === "voice" ? undefined : [{ type: "offer", offerId: o.id, name: o.name, benefit: o.benefit, validTill: o.validTill, conditions: o.conditions }],
     ch === "voice" ? [sayChip("Yes, go ahead", "yes go ahead"), chip("Not interested — stop calling", { kind: "offer", offerId, action: "stop" })]
       : [chip("Show conditions", { kind: "offer", offerId, action: "details" }), chip("Subscribe with offer", { kind: "offer", offerId, action: "accept" }), chip("STOP", { kind: "offer", offerId, action: "stop" })]);

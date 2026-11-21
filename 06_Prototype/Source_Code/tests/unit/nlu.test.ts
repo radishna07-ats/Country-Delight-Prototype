@@ -31,6 +31,8 @@ describe("intent classification — brief scenarios", () => {
     ["open my subscriptions", "navigate"],
     ["Pause my coconut water for 3 days", "pause_subscription"],
     ["yes", "yes"],
+    ["My recharge cashback was not received", "cashback"],
+    ["How does VIP benefit work?", "vip"],
   ];
   it.each(cases)("%s → %s", (text, intent) => { expect(parse(text, CLOCK).intent).toBe(intent); });
 });

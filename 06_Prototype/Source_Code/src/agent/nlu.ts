@@ -5,7 +5,7 @@ import { addDays, earliestChangeDate, findProducts, isGenericMilk, today, weekda
 
 export type Intent =
   | "human" | "medical" | "wellness" | "delivery_issue" | "delivery_prefs" | "wallet_deduction" | "wallet_refund"
-  | "payment_failed" | "smart_recharge" | "wallet_balance" | "end_vacation" | "vacation" | "pause_subscription"
+  | "payment_failed" | "cashback" | "vip" | "smart_recharge" | "wallet_balance" | "end_vacation" | "vacation" | "pause_subscription"
   | "remove_subscription" | "change_subscription" | "add_subscription" | "add_to_cart" | "tomorrow_order"
   | "offers" | "navigate" | "greet" | "thanks" | "yes" | "no" | "unknown";
 
@@ -120,6 +120,8 @@ export function parse(input: string, clock: string): Parsed {
     if (has(/\b(talk|speak|connect)\b.*\b(person|human|agent|executive|someone|customer care)\b|\bcustomer care\b|\breal person\b/)) return "human";
     if (has(/\b(diabet\w*|pregnan\w*|blood pressure|\bbp\b|cholesterol|kidney|thyroid|pcos|medicine|medication|my doctor|disease|heart patient|surgery)\b/)) return "medical";
     if (has(/\b(work ?out|workouts|working out|started training|gym|fitness|exercis\w*|protein intake|muscle|wellness|weight loss|lose weight|healthy eating|nutrition)\b/)) return "wellness";
+    if (has(/\bcash ?back\b/)) return "cashback";
+    if (has(/\b(vip|membership|member price|benefit (balance|amount|left))\b/)) return "vip";
     if (has(/\b(not|n't|nahi|nhi)\b.{0,25}\b(arriv\w*|come|came|received|deliver\w*|aaya|aayi|mila)\b|\b(hasn'?t|didn'?t|haven'?t)\b.{0,20}\b(arriv\w*|come|receiv\w*|deliver\w*|get)\b|\bmissing\b|\bleak\w*\b|\bdamag\w*\b|\bbroken\b|\bwrong (item|product|milk)\b|\bspoil\w*\b|\bsour\b|\bwhere is my (milk|order|delivery)\b|\babhi tak\b/)) return "delivery_issue";
     if (has(/\b(ring|bell|doorbell|knock|call (me )?before|voice (note|instruction))\b/)) return "delivery_prefs";
     if (has(/\b(refund|withdraw|money back|transfer.*bank|to my bank)\b/)) return "wallet_refund";

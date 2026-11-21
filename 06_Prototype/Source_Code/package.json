@@ -10,7 +10,7 @@
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
-    "test:e2e": "node tests/e2e/run-e2e.mjs"
+    "test:e2e": "node tests/e2e/run-e2e.cjs"
   },
   "dependencies": {
     "react": "18.3.1",
