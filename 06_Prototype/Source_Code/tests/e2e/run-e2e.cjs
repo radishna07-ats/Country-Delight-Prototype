@@ -1,15 +1,19 @@
 // End-to-end tests through the real UI (Playwright + built app).
 // Usage: npm run build && npm run test:e2e   (starts `vite preview` on :4174 itself)
+// E2E_URL=file:///…/Demo_Standalone.html node tests/e2e/run-e2e.cjs  tests another build (e.g. the standalone file) without a server;
+// results then go to e2e-results-alt.json so the main results file is not overwritten.
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
 
 const ROOT = path.resolve(__dirname, "../..");
-const URL = "http://127.0.0.1:4174/";
+const URL = process.env.E2E_URL || "http://127.0.0.1:4174/";
+const EXTERNAL = !!process.env.E2E_URL;
 const results = [];
 
 async function waitForServer(ms = 20000) {
+  if (EXTERNAL) return;
   const t0 = Date.now();
   while (Date.now() - t0 < ms) { try { const r = await fetch(URL); if (r.ok) return; } catch {} await new Promise((r) => setTimeout(r, 300)); }
   throw new Error("preview server did not start");
@@ -23,7 +27,7 @@ async function tc(id, title, fn, page) {
 const expectText = async (loc, re, timeout = 8000) => { await loc.filter({ hasText: re }).first().waitFor({ timeout }); };
 
 (async () => {
-  const server = spawn("npx", ["vite", "preview", "--host", "127.0.0.1", "--port", "4174", "--strictPort"], { cwd: ROOT, stdio: "ignore" });
+  const server = EXTERNAL ? null : spawn("npx", ["vite", "preview", "--host", "127.0.0.1", "--port", "4174", "--strictPort"], { cwd: ROOT, stdio: "ignore" });
   let browser;
   try {
     await waitForServer();
@@ -189,8 +193,8 @@ const expectText = async (loc, re, timeout = 8000) => { await loc.filter({ hasTe
     await tc("E19", "No uncaught page errors during the run", async () => { if (pageErrors.length) throw new Error(pageErrors.join(" | ")); });
   } finally {
     if (browser) await browser.close();
-    server.kill();
-    const out = path.join(ROOT, "tests/e2e/e2e-results.json");
+    if (server) server.kill();
+    const out = path.join(ROOT, EXTERNAL ? "tests/e2e/e2e-results-alt.json" : "tests/e2e/e2e-results.json");
     fs.writeFileSync(out, JSON.stringify({ ranAt: new Date().toISOString(), passed: results.filter((r) => r.status === "PASS").length, total: results.length, results }, null, 2));
     console.log(`\n${results.filter((r) => r.status === "PASS").length}/${results.length} passed → ${out}`);
     process.exit(results.every((r) => r.status === "PASS") ? 0 : 1);

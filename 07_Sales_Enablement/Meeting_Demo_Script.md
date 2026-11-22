@@ -1,6 +1,6 @@
 # Meeting Demo Script (≈15 minutes)
 
-**Setup (before the meeting):** `npm run build && npm run preview` in `06_Prototype/Source_Code`, open http://localhost:4173 in Chrome on a laptop at ≥1280 px wide (scenario panel · phone · inspector). Click **Reset data**. Turn on **Speak replies** only if the room audio is good. Allow the microphone once if you will use real voice. Have [`../06_Prototype/screenshots/`](../06_Prototype/screenshots/) ready as a fallback.
+**Setup (before the meeting):** open the hosted demo (https://claude.ai/artifact/6PBj2aEbdkCtro7HiFwXC8), or double-click `06_Prototype/Demo_Standalone.html` in Chrome or Edge, or run `npm run build && npm run preview` in `06_Prototype/Source_Code` and open http://localhost:4173. Use a laptop at ≥1280 px wide (scenario panel · phone · inspector). Click **Reset data**. Turn on **Speak replies** only if the room audio is good. For real voice, use the double-click file or the local server and allow the microphone once; the hosted link uses the tap-to-speak phrases. Have [`../06_Prototype/screenshots/`](../06_Prototype/screenshots/) ready as a fallback.
 
 **Say once at the start:** “Everything here runs on a simulated Country Delight back end and a fictional customer. The flows, rules and guardrails are what we propose. Nothing is connected to your systems or to a live Graine agent.”
 

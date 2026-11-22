@@ -8,7 +8,12 @@ An interactive, presentation-ready prototype of the Country Delight app with the
 
 ## Run it
 
-Requires Node 18+ (tested on Node 22).
+**No install needed:**
+
+- **Hosted:** https://claude.ai/artifact/6PBj2aEbdkCtro7HiFwXC8 (private until shared from the page's Share menu). Microphone input is blocked in the hosted frame, so voice falls back to tap-to-speak phrases. Add `#present` to the link for presentation mode.
+- **Offline:** open [`Demo_Standalone.html`](Demo_Standalone.html) in Chrome or Edge by double-clicking it. It is the same build inlined into one file and passes the same 19 end-to-end tests. Regenerate it with `npm run standalone`.
+
+**From source** (requires Node 18+, tested on Node 22):
 
 ```bash
 cd 06_Prototype/Source_Code

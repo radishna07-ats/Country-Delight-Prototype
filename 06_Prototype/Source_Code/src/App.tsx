@@ -123,7 +123,7 @@ export function Phone() {
 }
 
 export default function App() {
-  const [present, setPresent] = useState(() => new URLSearchParams(location.search).has("present"));
+  const [present, setPresent] = useState(() => new URLSearchParams(location.search).has("present") || location.hash === "#present");
   const [drawer, setDrawer] = useState<null | "scenarios" | "inspector">(null);
   const s = useUi();
   useEffect(() => {

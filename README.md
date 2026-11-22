@@ -17,7 +17,11 @@ An evidence-based proposal for an AI assistance layer across Country Delight's a
 
 ## Run the prototype
 
-Requires Node 18+.
+Three ways to run it, easiest first:
+
+1. **Hosted link (no install):** https://claude.ai/artifact/6PBj2aEbdkCtro7HiFwXC8. It is private until you share it from the page's Share menu. Microphone input is blocked there, so voice uses the tap-to-speak phrases.
+2. **Double-click file (offline):** open [`06_Prototype/Demo_Standalone.html`](06_Prototype/Demo_Standalone.html) in Chrome or Edge. Real microphone input works here after you allow it.
+3. **From source (needs Node 18+):**
 
 ```bash
 cd 06_Prototype/Source_Code && npm install
@@ -27,7 +31,7 @@ cd 06_Prototype/Source_Code && npm install
 npm run build && npm run preview
 ```
 
-Open http://localhost:4173 on a laptop at least 1280 px wide. Press **P** for presentation mode. Run the tests with `npm test` (unit) and, after `npm run build`, `npm run test:e2e` (UI; needs Playwright with Chromium; it starts its own preview server).
+Then open http://localhost:4173. Whichever way you run it, use a screen at least 1280 px wide and press **P** for presentation mode (or add `#present` to the link). Run the tests with `npm test` (unit) and, after `npm run build`, `npm run test:e2e` (UI; needs Playwright with Chromium; it starts its own preview server).
 
 ## Contents
 
