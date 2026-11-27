@@ -1,11 +1,11 @@
 # Prototype Test Results
 
-**Run:** 2026-11-21 15:39 UTC · Node 22 · Chromium (Playwright) · Vite 5.4.11
+**Run:** 2026-11-27 12:03 UTC · Node 22 · Chromium (Playwright) · Vite 5.4.11
 
 | Suite | Passed | Total |
 |---|---|---|
-| Unit & scenario tests (Vitest) | 78 | 78 |
-| End-to-end UI tests (Playwright) | 19 | 19 |
+| Unit & scenario tests (Vitest) | 100 | 100 |
+| End-to-end UI tests (Playwright) | 24 | 24 |
 | TypeScript strict typecheck | pass | — |
 | Production build | pass | — |
 
@@ -14,23 +14,28 @@
 | ID | Test | Result | Time |
 |---|---|---|---|
 | E01 | Home renders seeded state (wallet ₹395, tomorrow 3 items) | ✅ PASS | 0.1s |
-| E02 | UC3 Scenario 1: add two packets of milk → cart badge 2 | ✅ PASS | 1.8s |
-| E03 | UC5 Scenario 2: confirm subscription change, reflected in My Subscriptions, undo restores | ✅ PASS | 3.4s |
-| E04 | UC3 Scenario 3: vacation for next three days via voice card → Vacations screen | ✅ PASS | 2.3s |
-| E05 | UC1 Scenario 4: ₹500 explained as Autopay from ledger (₹78 below ₹200) | ✅ PASS | 1.8s |
+| E02 | UC3 Scenario 1: add two packets of milk → cart badge 2 | ✅ PASS | 4.1s |
+| E03 | UC5 Scenario 2: confirm subscription change, reflected in My Subscriptions, undo restores | ✅ PASS | 3.3s |
+| E04 | UC3 Scenario 3: vacation for next three days via voice card → Vacations screen | ✅ PASS | 2.2s |
+| E05 | UC1 Scenario 4: ₹500 explained as Autopay from ledger (₹78 below ₹200) | ✅ PASS | 1.2s |
 | E06 | UC1: unknown amount is not invented | ✅ PASS | 0.8s |
-| E07 | UC2 Scenario 5: status + POD → policy options → confirm → case created and listed in history | ✅ PASS | 4.3s |
-| E08 | UC2 WhatsApp Hinglish: Hinglish reply with order status | ✅ PASS | 2.3s |
-| E09 | UC2 inbound call: verification before account data, then status | ✅ PASS | 1.9s |
-| E10 | UC6 Scenario 6: consent → goal → diet → peanut allergy → peanut butter excluded | ✅ PASS | 1.7s |
-| E11 | UC4 campaign: voice skipped without consent; in-app push → offer; STOP withdraws consent | ✅ PASS | 1.2s |
+| E07 | UC2 Scenario 5: status + POD → policy options → confirm → case created and listed in history | ✅ PASS | 4.7s |
+| E08 | UC2 WhatsApp Hinglish: Hinglish reply with order status | ✅ PASS | 2.2s |
+| E09 | UC2 inbound call: verification before account data, then status | ✅ PASS | 1.8s |
+| E10 | UC6 Scenario 6: consent → goal → diet → peanut allergy → peanut butter excluded | ✅ PASS | 2.1s |
+| E11 | UC4 campaign: voice skipped without consent; in-app push → offer; STOP withdraws consent | ✅ PASS | 1.4s |
 | E12 | Ayuh coexistence: Something else → assistant opens with Ayuh context | ✅ PASS | 0.5s |
-| E13 | Guardrail: fault injection on confirm → 'nothing was changed', state unchanged | ✅ PASS | 2.2s |
-| E14 | Guardrail: declining a change leaves data unchanged | ✅ PASS | 1.3s |
-| E15 | Manual app flow: Set Vacation sheet blocks > 60 days and accepts a valid range | ✅ PASS | 1.4s |
+| E13 | Guardrail: fault injection on confirm → 'nothing was changed', state unchanged | ✅ PASS | 2.3s |
+| E14 | Guardrail: declining a change leaves data unchanged | ✅ PASS | 1.5s |
+| E15 | Manual app flow: Set Vacation sheet blocks > 60 days and accepts a valid range | ✅ PASS | 1.5s |
 | E16 | Persistence: subscription change survives a reload; Reset restores seed | ✅ PASS | 4.6s |
-| E17 | Friction: looping My Subscriptions ×3 in 45 s shows one quiet suggestion | ✅ PASS | 0.5s |
+| E17 | Friction: looping My Subscriptions ×3 in 45 s shows one quiet suggestion | ✅ PASS | 0.4s |
 | E18 | Mobile viewport (390×844): app fills screen, no horizontal scroll, demo button present | ✅ PASS | 1.7s |
+| E20 | Operator: “protein powder under ₹2,000, best-rated, add to cart” is done in the app (search, sort, filter, tap, verify) | ✅ PASS | 4.4s |
+| E21 | Context: on a product page, “add two of this” uses that product and the page's own controls | ✅ PASS | 5.7s |
+| E22 | Compact dock: app stays visible and usable while the assistant is active | ✅ PASS | 0.4s |
+| E23 | Expanded state: opens for a component card, collapses on request and returns to the compact bar | ✅ PASS | 2.0s |
+| E24 | Microphone: permission requested once, stream reused across mic taps; denied state explains how to enable | ✅ PASS | 7.6s |
 | E19 | No uncaught page errors during the run | ✅ PASS | 0.0s |
 
 ## Unit and scenario tests
@@ -84,20 +89,42 @@
 | ✅ | nlu.test.ts > date edge cases > 28th to 3rd rolls the end into the next month |
 | ✅ | nlu.test.ts > date edge cases > reversed explicit dates are flagged, not repaired |
 | ✅ | nlu.test.ts > date edge cases > a second request in one message is detected |
+| ✅ | nlu.test.ts > in-app operator intents > find with price ceiling, rating preference and add |
+| ✅ | nlu.test.ts > in-app operator intents > search without adding |
+| ✅ | nlu.test.ts > in-app operator intents > screen, tap, type, scroll, back |
+| ✅ | nlu.test.ts > in-app operator intents > references to what is on screen |
+| ✅ | nlu.test.ts > in-app operator intents > cart changes |
+| ✅ | nlu.test.ts > in-app operator intents > existing intents are unaffected |
 | ✅ | engine.test.ts > Scenario 1 — product discovery: add two packets of milk > clarifies the milk, then adds after the customer taps Add |
+| ✅ | operator.test.ts > screen context > reads the live screen: route, inputs, products with price and rating |
+| ✅ | operator.test.ts > screen context > answers “what's on this screen?” from what is rendered |
+| ✅ | operator.test.ts > operating the app > find protein powder under ₹2,000, add the best-rated: searches, sorts, filters by price, taps Add, verifies |
+| ✅ | operator.test.ts > operating the app > cheapest + quantity |
 | ✅ | engine.test.ts > Scenario 2 — subscription modification > shows current → proposed, executes only on confirm, supports undo |
+| ✅ | operator.test.ts > operating the app > nothing within budget: says so and adds nothing |
 | ✅ | engine.test.ts > Scenario 2 — subscription modification > 'one more packet' adds one to the current quantity |
 | ✅ | engine.test.ts > Scenario 2 — subscription modification > declining changes nothing |
+| ✅ | operator.test.ts > operating the app > ambiguous “milk”: puts the options on screen, asks, then adds the chosen one through the app |
 | ✅ | engine.test.ts > Scenario 2 — subscription modification > changing coconut frequency warns that the 4 pe 4 offer is voided |
 | ✅ | engine.test.ts > Scenario 3 — vacation > resolves next three days, respects cut-off, updates orders |
 | ✅ | engine.test.ts > Scenario 3 — vacation > refuses more than 60 days |
+| ✅ | operator.test.ts > operating the app > “this” on a product page: switches to one-time, sets quantity, presses Add to cart |
+| ✅ | operator.test.ts > operating the app > “the first one” resolves against the products on screen |
 | ✅ | engine.test.ts > Scenario 4 — wallet > explains the ₹500 as a UPI Autopay top-up using ledger data |
+| ✅ | operator.test.ts > operating the app > removes and changes cart items through the cart's own controls |
+| ✅ | operator.test.ts > operating the app > navigates through the UI (Menu › My Subscriptions), not by jumping |
 | ✅ | engine.test.ts > Scenario 4 — wallet > lists recent debits and explains the latest from the order |
+| ✅ | operator.test.ts > operating the app > on a subscription screen, “this” is that subscription |
 | ✅ | engine.test.ts > Scenario 4 — wallet > never invents an unknown deduction |
+| ✅ | operator.test.ts > guardrails in the action layer > never presses Place order (T4) |
 | ✅ | engine.test.ts > Scenario 4 — wallet > balance with runway |
+| ✅ | operator.test.ts > guardrails in the action layer > the action layer itself refuses T4, even if asked directly |
+| ✅ | operator.test.ts > guardrails in the action layer > needs confirmation before pressing an account-changing button (T2) |
 | ✅ | engine.test.ts > Scenario 5 — delivery issue > shows status + POD, offers policy options, creates a ticket |
 | ✅ | engine.test.ts > Scenario 5 — delivery issue > Hinglish input gets a Hinglish reply |
 | ✅ | engine.test.ts > Scenario 5 — delivery issue > status service down → no guessing, ticket + callback |
+| ✅ | operator.test.ts > guardrails in the action layer > a failed add is reported, not claimed |
+| ✅ | operator.test.ts > guardrails in the action layer > Stop halts the operator |
 | ✅ | engine.test.ts > Scenario 6 — wellness > asks consent, goal, diet, allergy; excludes allergens; adds safety note |
 | ✅ | engine.test.ts > Scenario 6 — wellness > medical questions get a safety response |
 | ✅ | engine.test.ts > Guardrails > failed write: says nothing changed and offers retry |
@@ -141,10 +168,17 @@
 | D-19 | “Set my milk to 0” proposed 2; “50 packets” proposed +1 | Edge-case probe (invalid quantity) | 0 offers pause/remove; unusually large quantities go to a person |
 | D-20 | Agent replies were not announced to screen readers | Accessibility review (§14.4) | Conversation is a `role="log"` polite live region |
 | D-21 | Deck, pitch and CTO guide said “working prototype” without stating that it runs on simulated data | Claims audit (§19 “no misleading production claims”) | Caption on every prototype screen in the deck, disclosure in the executive summary, and a “say once” line in the pitch and CTO guide |
+| D-22 | **Client review.** The agent didn't use the screen: it answered from back-end tools and gave instructions instead of acting in the app | Client review of the prototype | Screen-context layer + declared in-app actions + goal planner (`src/operator/`); the agent searches, sorts, taps, types and navigates in the app and verifies each step on screen |
+| D-23 | **Client review.** The assistant opened as an 86%-height sheet over a dark backdrop, hiding the app | Client review | Compact bottom-docked bar with one reply bubble; panel expands only for components and folds back after; app stays usable |
+| D-24 | **Client review.** The browser asked for the microphone on every tap in the HTML demo | Client review | Permissions API check, one `getUserMedia()` stream per session reused for recognition, revocation handling, clear denied-state guidance; claude.ai dictation on the hosted page |
+| D-25 | After a confirmed card, the panel collapsed in 250 ms, before “Confirmed” could be seen | E2E E03/E16 after the redesign | Collapse waits 1.8 s |
+| D-26 | Compact chips were capped at three, hiding wellness options (Vegetarian, Peanuts) | E2E E10 | All chips in one scrollable row |
+| D-27 | Idle assistant bar covered Ayuh's own options | E2E E12 | Idle bar hidden on Ayuh (it has its own hand-off) |
+| D-28 | “Add two of this” added one; “2 matchs”; transparent reply bubble; app toast and mobile Demo button overlapped the bar | Browser runs at 1600 px and 390 px | Quantity words before “of this”; plural fix; solid bubble; toast moves to the top and Demo button to the side while the assistant is open |
 
 ## Not tested / known limitations
 
-- Real microphone input was not exercised in headless tests (browser speech requires a real device and permission); the simulated tap-to-speak path is covered.
+- Real speech was not exercised in headless tests (recognition needs a real voice and, in Chrome, Google's speech service). The microphone permission flow is covered with a fake device: one `getUserMedia()` call across repeated mic taps, and the denied-state message (E24).
 - Safari/Firefox not tested; Web Speech recognition is Chrome/Edge only (fallback works everywhere).
 - The rule-based parser covers the demo vocabulary and common variants; unusual phrasings fall back to a clarification with options (by design). One change per turn: when a sentence has two requests (“pause tomorrow and increase my milk”), the agent handles the first and offers the second as a one-tap chip.
 - Instant (30-minute) mode is shown but agent flows use Morning orders.

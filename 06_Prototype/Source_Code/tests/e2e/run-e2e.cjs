@@ -47,9 +47,10 @@ const expectText = async (loc, re, timeout = 8000) => { await loc.filter({ hasTe
     });
 
     await tc("E02", "UC3 Scenario 1: add two packets of milk → cart badge 2", async () => {
-      await scenario("s1"); await page.waitForSelector("[data-testid=add-cow-milk]", { timeout: 8000 });
-      await page.click("[data-testid=add-cow-milk]");
-      await expectText(agent, /Added 2 × Cow Milk/);
+      await scenario("s1"); await expectText(agent, /Which one should I add 2/, 15000);
+      if ((await page.inputValue("[data-testid=search-input]")) !== "milk") throw new Error("milk options not opened in the app");
+      await page.locator("[data-testid=chips] button", { hasText: "Cow Milk" }).first().click();
+      await expectText(agent, /Added 2 × Cow Milk/, 15000);
       await page.click("[data-testid=close-agent]");
       await expectText(page.locator("[data-testid=cart-badge]"), /^2$/);
     });
@@ -67,12 +68,12 @@ const expectText = async (loc, re, timeout = 8000) => { await loc.filter({ hasTe
     });
 
     await tc("E04", "UC3 Scenario 3: vacation for next three days via voice card → Vacations screen", async () => {
-      await scenario("s3"); await page.waitForSelector("[data-testid=voice-overlay] [data-testid=card-vacation][data-state=pending]", { timeout: 10000 });
+      await scenario("s3"); await page.waitForSelector("[data-testid=agent-sheet] [data-testid=card-vacation][data-state=pending]", { timeout: 10000 });
       await expectText(page.locator("[data-testid=vac-start]"), /Sun, 22 Nov/);
       await expectText(page.locator("[data-testid=vac-end]"), /Tue, 24 Nov/);
-      await page.click("[data-testid=voice-overlay] [data-testid=card-confirm]");
-      await page.waitForSelector("[data-testid=voice-overlay] [data-testid=card-vacation][data-state=confirmed]", { timeout: 8000 });
-      await page.click("[data-testid=voice-close]");
+      await page.click("[data-testid=agent-sheet] [data-testid=card-confirm]");
+      await page.waitForSelector("[data-testid=agent-sheet] [data-testid=card-vacation][data-state=confirmed]", { timeout: 8000 });
+      await page.click("[data-testid=close-agent]");
       await page.click("[data-testid=nav-menu]"); await page.click("[data-testid=menu-vacation]");
       await expectText(page.locator("[data-testid=vacation-card]"), /resume from Wed, 25 Nov/);
     });
@@ -188,6 +189,72 @@ const expectText = async (loc, re, timeout = 8000) => { await loc.filter({ hasTe
       const overflow = await m.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       if (overflow > 1) throw new Error(`horizontal overflow ${overflow}px`);
       await m.waitForSelector("[data-testid=demo-fab]"); await m.close();
+    });
+
+    // ---------------- context-aware operator, compact dock, microphone permission ----------------
+    const say = async (t) => {
+      await page.fill("[data-testid=composer]", t); await page.click("[data-testid=send]");
+      await page.waitForTimeout(500);
+      await page.waitForFunction(() => !document.querySelector("[data-testid=operator-step]") && !document.querySelector("[data-testid=thinking]"), null, { timeout: 30000 });
+      await page.waitForTimeout(300);
+    };
+    const open = async () => { await page.click("[data-testid=ctl-reset]"); await page.click("[data-testid=ctl-home]"); await page.click("[data-testid=dock-open]"); await page.waitForTimeout(300); };
+
+    await tc("E20", "Operator: “protein powder under ₹2,000, best-rated, add to cart” is done in the app (search, sort, filter, tap, verify)", async () => {
+      await open();
+      await page.fill("[data-testid=composer]", "Find me a protein powder under ₹2,000 and add the best-rated option to my cart."); await page.click("[data-testid=send]");
+      await page.waitForSelector("[data-testid=operator-step]", { timeout: 5000 });          // the live step line is shown while it works
+      await page.waitForFunction(() => !document.querySelector("[data-testid=operator-step]"), null, { timeout: 30000 });
+      if ((await page.inputValue("[data-testid=search-input]")) !== "protein powder") throw new Error("query not typed into the app's search");
+      if ((await page.getAttribute("[data-testid=sort-rating]", "aria-pressed")) !== "true") throw new Error("results not sorted by rating in the app");
+      await expectText(page.locator("[data-testid=cart-badge]"), /^1$/);
+      await expectText(page.locator("[data-testid=add-tile-whey-1kg]"), /ADD · 1/);
+      await expectText(page.locator("[data-testid=agent-bubble]"), /best-rated of 2 options under ₹2,000/);
+    });
+
+    await tc("E21", "Context: on a product page, “add two of this” uses that product and the page's own controls", async () => {
+      await say("Open greek yogurt");
+      if (!(await page.isVisible("[data-testid=screen-product]"))) throw new Error("product page not opened");
+      await say("Add two of this to my cart");
+      await expectText(page.locator("[data-testid=cart-line-greek-yogurt]"), /2/);
+    });
+
+    await tc("E22", "Compact dock: app stays visible and usable while the assistant is active", async () => {
+      await open(); await page.click("[data-testid=nav-products]");
+      const phone = await page.locator("[data-testid=phone]").boundingBox();
+      const bar = await page.locator("[data-testid=agent-bar]").boundingBox();
+      if (bar.height > 64) throw new Error(`bar too tall: ${bar.height}`);
+      const covered = await page.evaluate(() => { const els = [...document.querySelectorAll("[data-testid=agent-dock] > *")].filter((e) => getComputedStyle(e).opacity !== "0" && e.getBoundingClientRect().height > 1); const top = Math.min(...els.map((e) => e.getBoundingClientRect().top)); const bottom = Math.max(...els.map((e) => e.getBoundingClientRect().bottom)); return bottom - top; });
+      if (covered / phone.height > 0.35) throw new Error(`compact assistant covers ${Math.round((100 * covered) / phone.height)}% of the screen`);
+      if (!(await page.isVisible("[data-testid=screen-products]"))) throw new Error("app not reachable while assistant open");
+      if (!(await page.isVisible("[data-testid=agent-bar]"))) throw new Error("assistant closed when using the app");
+    });
+
+    await tc("E23", "Expanded state: opens for a component card, collapses on request and returns to the compact bar", async () => {
+      await scenario("s2"); await page.waitForSelector("[data-testid=agent-sheet] [data-testid=card-sub-change][data-state=pending]", { timeout: 10000 });
+      const sheet = await page.locator("[data-testid=agent-sheet]").boundingBox(); const phone = await page.locator("[data-testid=phone]").boundingBox();
+      if (sheet.y - phone.y < phone.height * 0.25) throw new Error("expanded panel hides the top of the app");
+      await page.click("[data-testid=agent-collapse]"); await page.waitForTimeout(500);
+      if (await page.isVisible("[data-testid=agent-sheet]")) throw new Error("did not collapse");
+      await page.click("[data-testid=show-details]"); await page.waitForSelector("[data-testid=agent-sheet] [data-testid=card-sub-change]");
+    });
+
+    await tc("E24", "Microphone: permission requested once, stream reused across mic taps; denied state explains how to enable", async () => {
+      const mb = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
+      try {
+        const c = await mb.newContext({ viewport: { width: 1600, height: 960 }, permissions: ["microphone"] });
+        await c.addInitScript(() => { window.__gum = 0; const o = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices); navigator.mediaDevices.getUserMedia = (x) => { window.__gum++; return o(x); }; });
+        const m = await c.newPage(); await m.goto(URL); await m.waitForTimeout(1500);
+        await m.click("[data-testid=dock-open]"); await m.waitForTimeout(300);
+        for (let i = 0; i < 3; i++) { await m.click("[data-testid=mic]"); await m.waitForTimeout(600); await m.click("[data-testid=mic]").catch(() => {}); await m.waitForTimeout(500); }
+        const n = await m.evaluate(() => window.__gum);
+        if (n !== 1) throw new Error(`getUserMedia called ${n} times`);
+        const d = await mb.newContext({ viewport: { width: 1600, height: 960 } });
+        await d.addInitScript(() => { navigator.mediaDevices.getUserMedia = () => Promise.reject(Object.assign(new Error("denied"), { name: "NotAllowedError" })); });
+        const q = await d.newPage(); await q.goto(URL); await q.waitForTimeout(1500);
+        await q.click("[data-testid=dock-open]"); await q.click("[data-testid=mic]");
+        await expectText(q.locator("[data-testid=voice-error]"), /Microphone access is blocked.*address bar/);
+      } finally { await mb.close(); }
     });
 
     await tc("E19", "No uncaught page errors during the run", async () => { if (pageErrors.length) throw new Error(pageErrors.join(" | ")); });

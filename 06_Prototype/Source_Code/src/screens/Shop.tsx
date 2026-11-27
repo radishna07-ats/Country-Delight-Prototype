@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { db, navigate, toast, useDb, useUi } from "../backend/store";
-import { CATALOGUE, byId, HEALTH_GOALS } from "../data/catalogue";
+import { CATALOGUE, byId, HEALTH_GOALS, searchCatalogue } from "../data/catalogue";
 import type { Frequency, Product } from "../data/types";
 import { addDays, earliestChangeDate, fmtDate, rupees, today, unitPrice, DAY_SHORT, toDate, FREQ_LABEL } from "../backend/rules";
 import { api, placeCartOrder, orderValueFor } from "../backend/api";
@@ -39,11 +39,11 @@ export function Home() {
             <div className="font-extrabold text-[14px]">{mode === "morning" ? "5am – 7:30am" : "30 minutes"}</div>
             <div className="text-[11px] text-cd-muted truncate">{d.customer.area}</div>
           </div>
-          <button type="button" onClick={() => navigate("cdmoney")} data-testid="wallet-chip" className={cx("h-8 px-2.5 rounded-lg text-[12px] font-extrabold flex items-center gap-1", low ? "bg-orange-100 text-cd-danger" : "bg-cd-deep text-white")}>
+          <button type="button" onClick={() => navigate("cdmoney")} data-testid="wallet-chip" data-agent-nav="cdmoney" data-agent-label="CD Money wallet" className={cx("h-8 px-2.5 rounded-lg text-[12px] font-extrabold flex items-center gap-1", low ? "bg-orange-100 text-cd-danger" : "bg-cd-deep text-white")}>
             <I.wallet size={14} />{rupees(d.wallet.balance)}
           </button>
         </div>
-        <button type="button" onClick={() => navigate("products")} className="mt-3 w-full h-11 rounded-xl bg-white border border-cd-line flex items-center gap-2 px-3 text-[13px] text-cd-muted">
+        <button type="button" onClick={() => navigate("products", { focus: "search" })} data-agent-nav="products" data-agent-label="Search products" data-testid="home-search" className="mt-3 w-full h-11 rounded-xl bg-white border border-cd-line flex items-center gap-2 px-3 text-[13px] text-cd-muted">
           <I.search size={18} /> Search for “Paneer”
         </button>
       </div>
@@ -82,7 +82,7 @@ export function Home() {
             </button>
           ))}
         </div>
-        <button type="button" onClick={() => navigate("wellness")} data-testid="wellness-entry" className="mx-3 mt-4 w-[calc(100%-24px)] text-left rounded-2xl p-4 bg-gradient-to-br from-[#E4F5DC] to-[#FFF6D6] border border-cd-line flex items-center gap-3">
+        <button type="button" onClick={() => navigate("wellness")} data-testid="wellness-entry" data-agent-nav="wellness" data-agent-label="Your Wellness Journey" className="mx-3 mt-4 w-[calc(100%-24px)] text-left rounded-2xl p-4 bg-gradient-to-br from-[#E4F5DC] to-[#FFF6D6] border border-cd-line flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-white grid place-items-center text-cd-green shadow-card"><I.leaf size={26} /></div>
           <div className="flex-1"><div className="flex items-center gap-2"><span className="font-extrabold text-[14.5px] text-cd-deep">Your Wellness Journey</span><Pill tone="vip">NEW</Pill></div>
             <div className="text-[11.5px] text-cd-muted">Goal-based picks that respect your allergies</div></div>
@@ -120,9 +120,12 @@ function Rail({ title, ids }: { title: string; ids: string[] }) {
 
 export function ProductTile({ p, wide }: { p: Product; wide?: boolean }) {
   const d = useDb(); const vip = d.customer.vip.active;
+  const inCart = d.cart.filter((c) => c.productId === p.id).reduce((n, c) => n + c.qty, 0);
   return (
-    <div className={cx("shrink-0", wide ? "w-full" : "w-[132px]")}>
-      <button type="button" onClick={() => navigate("product", { id: p.id })} className="relative w-full rounded-2xl overflow-hidden border border-cd-line bg-white" data-testid={`tile-${p.id}`}>
+    // Structured fields the in-app agent reads as screen context (Graine: "screen reporting via structured fields").
+    <div className={cx("shrink-0", wide ? "w-full" : "w-[132px]")} data-agent-product={p.id} data-agent-name={p.name} data-agent-price={unitPrice(p, vip)}
+      data-agent-rating={p.rating} data-agent-reviews={p.reviews} data-agent-size={p.size} data-agent-incart={inCart} data-agent-stock={p.inStockTomorrow ? "in" : "out"}>
+      <button type="button" onClick={() => navigate("product", { id: p.id })} data-agent-action="open" data-agent-label={`Open ${p.name}`} className="relative w-full rounded-2xl overflow-hidden border border-cd-line bg-white" data-testid={`tile-${p.id}`}>
         <div className="w-full flex justify-center"><ProductArt p={p} size={wide ? 150 : 130} /></div>
         {p.badge && <span className="absolute top-2 left-2"><Pill tone="mint">{p.badge}</Pill></span>}
       </button>
@@ -130,10 +133,11 @@ export function ProductTile({ p, wide }: { p: Product; wide?: boolean }) {
         <div className="flex-1 min-w-0">
           <div className="text-[12px] font-bold leading-tight line-clamp-2">{p.name}</div>
           <div className="mt-1 inline-block text-[10px] border border-cd-line rounded-md px-1.5 py-0.5 text-cd-muted">{p.size}</div>
+          {p.rating && <div className="mt-0.5 text-[10px] text-cd-muted flex items-center gap-0.5" data-testid={`rating-${p.id}`}><span className="text-cd-vipdeep">★</span><b className="text-cd-ink">{p.rating.toFixed(1)}</b><span>({p.reviews! >= 1000 ? `${(p.reviews! / 1000).toFixed(1)}k` : p.reviews})</span></div>}
           <div className="text-[12px] font-extrabold mt-0.5">{rupees(unitPrice(p, vip))}{unitPrice(p, vip) < p.mrp && <span className="ml-1 text-[10px] text-cd-muted line-through font-medium">{rupees(p.mrp)}</span>}</div>
         </div>
-        <button type="button" aria-label={`Add ${p.name}`} onClick={async () => { const r = await api.add_to_cart("inapp", { productId: p.id, qty: 1 }); toast(r.status === "ok" ? `Added ${p.name}` : r.message ?? "Couldn't add", r.status === "ok" ? "ok" : "warn"); }}
-          className="mt-0.5 h-7 px-2.5 rounded-lg border border-cd-leaf text-cd-green text-[11px] font-extrabold bg-white hover:bg-cd-mint">ADD</button>
+        <button type="button" aria-label={`Add ${p.name}`} data-agent-action="add" data-testid={`add-tile-${p.id}`} onClick={async () => { const r = await api.add_to_cart("inapp", { productId: p.id, qty: 1 }); toast(r.status === "ok" ? `Added ${p.name}` : r.message ?? "Couldn't add", r.status === "ok" ? "ok" : "warn"); }}
+          className="mt-0.5 h-7 px-2.5 rounded-lg border border-cd-leaf text-cd-green text-[11px] font-extrabold bg-white hover:bg-cd-mint">{inCart ? `ADD · ${inCart}` : "ADD"}</button>
       </div>
     </div>
   );
@@ -143,18 +147,26 @@ export function ProductTile({ p, wide }: { p: Product; wide?: boolean }) {
 export function Products() {
   const { route } = useUi();
   const [cat, setCat] = useState(route.params?.cat ?? (route.params?.goal ? "goal" : "milk"));
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(route.params?.q ?? "");
+  const [sort, setSort] = useState<"relevance" | "price" | "rating">("relevance");
   const goal = route.params?.goal;
-  const tabs = [["milk", "Milk & Coconut"], ["dairy", "Paneer, Dahi"], ["breakfast", "Breads, Eggs"], ["fruits", "Fruits"], ["veggies", "Veggies"], ["staples", "Staples"], ["snacks", "Snacks"]];
-  const list = useMemo(() => CATALOGUE.filter((p) => (q ? p.name.toLowerCase().includes(q.toLowerCase()) : goal && cat === "goal" ? p.tags.includes(goal) : p.category === cat)), [cat, q, goal]);
-  const d = useDb();
+  const tabs = [["milk", "Milk & Coconut"], ["dairy", "Paneer, Dahi"], ["breakfast", "Breads, Eggs"], ["fruits", "Fruits"], ["veggies", "Veggies"], ["staples", "Staples"], ["snacks", "Snacks"], ["nutrition", "Nutrition"]];
+  const d = useDb(); const vip = d.customer.vip.active;
+  const list = useMemo(() => {
+    const base = q.trim() ? searchCatalogue(q) : CATALOGUE.filter((p) => (goal && cat === "goal" ? p.tags.includes(goal) : p.category === cat));
+    if (sort === "price") return [...base].sort((a, b) => unitPrice(a, vip) - unitPrice(b, vip));
+    if (sort === "rating") return [...base].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (b.reviews ?? 0) - (a.reviews ?? 0));
+    return base;
+  }, [cat, q, goal, sort, vip]);
   return (
     <div className="pb-36">
       <Header title={fmtDate(earliestChangeDate(d.clock))} subtitle="5am to 7:30am" right={<button type="button" aria-label="Cart" onClick={() => navigate("cart")} className="relative w-9 h-9 grid place-items-center"><I.cart size={20} />{d.cart.length > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-cd-danger text-white text-[9px] font-bold grid place-items-center">{d.cart.reduce((s, c) => s + c.qty, 0)}</span>}</button>} />
-      <div className="px-3 pt-3"><label className="h-10 rounded-xl border border-cd-line flex items-center gap-2 px-3 text-[13px]"><I.search size={16} className="text-cd-muted" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products" className="flex-1 outline-none bg-transparent" data-testid="search-input" /></label></div>
+      <div className="px-3 pt-3"><label className="h-10 rounded-xl border border-cd-line flex items-center gap-2 px-3 text-[13px]"><I.search size={16} className="text-cd-muted" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products" aria-label="Search products" className="flex-1 outline-none bg-transparent" data-testid="search-input" data-agent-field="search" autoFocus={route.params?.focus === "search"} />{q && <button type="button" aria-label="Clear search" data-agent-label="Clear search" onClick={() => setQ("")} className="text-cd-muted"><I.x size={14} /></button>}</label></div>
+      <div className="flex items-center gap-1.5 px-3 pt-2 text-[11px]" data-testid="sort-row"><span className="text-cd-muted mr-1 whitespace-nowrap">{q.trim() ? `${list.length} result${list.length === 1 ? "" : "s"} · ` : ""}Sort</span>
+        {([["relevance", "Relevance", "Relevance"], ["price", "Price: low to high", "Lowest price"], ["rating", "Rating", "Top rated"]] as const).map(([k, label, short]) => <button key={k} type="button" onClick={() => setSort(k)} data-testid={`sort-${k}`} data-agent-label={`Sort by ${label}`} aria-pressed={sort === k} className={cx("h-7 px-2.5 rounded-full font-bold border whitespace-nowrap", sort === k ? "bg-cd-deep text-white border-cd-deep" : "border-cd-line bg-white text-cd-ink")}>{short}</button>)}</div>
       <div className="flex gap-2 overflow-x-auto no-scrollbar px-3 py-3">
         {goal && <button type="button" onClick={() => setCat("goal")} className={cx("shrink-0 h-8 px-3 rounded-full text-[12px] font-bold border", cat === "goal" ? "bg-cd-green text-white border-cd-green" : "border-cd-line")}>{HEALTH_GOALS.find((g) => g.id === goal)?.label}</button>}
-        {tabs.map(([id, label]) => <button key={id} type="button" onClick={() => { setCat(id); setQ(""); }} className={cx("shrink-0 h-8 px-3 rounded-full text-[12px] font-bold border", cat === id && !q ? "bg-cd-green text-white border-cd-green" : "border-cd-line bg-white")}>{label}</button>)}
+        {tabs.map(([id, label]) => <button key={id} type="button" data-agent-label={`Category ${label}`} onClick={() => { setCat(id); setQ(""); }} className={cx("shrink-0 h-8 px-3 rounded-full text-[12px] font-bold border", cat === id && !q ? "bg-cd-green text-white border-cd-green" : "border-cd-line bg-white")}>{label}</button>)}
       </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-4 px-3">
         {list.map((p) => <ProductTile key={p.id} p={p} wide />)}
@@ -179,7 +191,7 @@ export function ProductDetail() {
     if (r.status === "ok") { toast(existing ? "Subscription updated" : "Order Subscribed!"); navigate("subscriptions"); } else toast(r.message ?? "Couldn't save", "warn");
   };
   return (
-    <div className="pb-28">
+    <div className="pb-28" data-agent-context-product={p.id}>
       <Header title={p.name} />
       <div className="flex justify-center bg-cd-cream py-4"><ProductArt p={p} size={220} /></div>
       <div className="px-4 pt-4">
@@ -188,16 +200,16 @@ export function ProductDetail() {
         <div className="mt-3 flex items-center justify-between"><div className="font-extrabold text-[16px]">{rupees(unitPrice(p, d.customer.vip.active))}{unitPrice(p, d.customer.vip.active) < p.mrp && <span className="ml-1.5 text-[12px] line-through text-cd-muted font-medium">{rupees(p.mrp)}</span>}</div><Stepper value={qty} onChange={setQty} min={1} testId="pd-stepper" /></div>
         <div className="mt-3 rounded-xl bg-[#FFF8DA] px-3 py-2 text-[12px] flex justify-between"><span>Upto 40% off with <b>VIP</b></span><span className="text-cd-green font-bold">{d.customer.vip.active ? "VIP ACTIVE" : "SEE PLAN"}</span></div>
         <div className="mt-4 grid grid-cols-2 gap-3 text-[12px]">
-          <div><div className="text-cd-muted">Subscription type</div><button type="button" onClick={() => setFreqOpen(true)} className="mt-1 font-bold flex items-center gap-1" data-testid="pd-frequency">{FREQ_LABEL[freq]} <I.down size={14} /></button></div>
+          <div><div className="text-cd-muted">Subscription type</div><button type="button" onClick={() => setFreqOpen(true)} className="mt-1 font-bold flex items-center gap-1" data-testid="pd-frequency" data-agent-label={`Subscription type: ${FREQ_LABEL[freq]}`}>{FREQ_LABEL[freq]} <I.down size={14} /></button></div>
           <div><div className="text-cd-muted">Start date</div><div className="mt-1 font-bold">{fmtDate(earliestChangeDate(d.clock))}</div></div>
         </div>
         <div className="mt-4 text-[12.5px] text-cd-muted">{p.description}</div>
         {p.tags.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{p.tags.map((t) => <Pill key={t} tone="gray">{t.replace(/_/g, " ")}</Pill>)}</div>}
-        <div className="mt-2 text-[10.5px] text-cd-muted">Prototype catalogue · prices and tags are illustrative.</div>
+        <div className="mt-2 text-[10.5px] text-cd-muted">Prototype catalogue · prices, tags and ratings are illustrative.</div>
       </div>
-      <div className="absolute bottom-[86px] left-0 right-0 px-4 z-10"><PriceCta price={rupees(price)} label={freq === "once" ? "Add to cart" : existing ? "Update subscription" : "Confirm subscription"} onClick={confirm} testId="pd-confirm" /></div>
+      <div className="absolute bottom-[86px] left-0 right-0 px-4 z-10"><PriceCta price={rupees(price)} label={freq === "once" ? "Add to cart" : existing ? "Update subscription" : "Confirm subscription"} onClick={confirm} testId="pd-confirm" tier={freq === "once" ? "T1" : "T2"} /></div>
       <Sheet open={freqOpen} onClose={() => setFreqOpen(false)} title="Subscription type">
-        <div className="p-4 grid gap-2">{p.frequencies.map((f) => <button key={f} type="button" onClick={() => { setFreq(f); setFreqOpen(false); }} className={cx("h-11 rounded-xl border text-left px-4 text-[13px] font-bold", f === freq ? "border-cd-leaf bg-cd-mint" : "border-cd-line")}>{FREQ_LABEL[f]}</button>)}</div>
+        <div className="p-4 grid gap-2">{p.frequencies.map((f) => <button key={f} type="button" data-agent-label={`Frequency ${FREQ_LABEL[f]}`} onClick={() => { setFreq(f); setFreqOpen(false); }} className={cx("h-11 rounded-xl border text-left px-4 text-[13px] font-bold", f === freq ? "border-cd-leaf bg-cd-mint" : "border-cd-line")}>{FREQ_LABEL[f]}</button>)}</div>
       </Sheet>
     </div>
   );
@@ -217,7 +229,7 @@ export function Cart() {
       {!d.cart.length ? <Empty icon={<I.cart size={28} />} title="Your cart is empty" body="Add products, or ask the assistant: “add two packets of milk”." action={<Btn onClick={() => navigate("products")}>Browse products</Btn>} /> : (
         <div className="p-3 grid gap-2">
           {d.cart.map((c) => { const p = byId(c.productId); return (
-            <Card key={c.productId} className="p-3 flex items-center gap-3" testId={`cart-line-${c.productId}`}>
+            <Card key={c.productId} className="p-3 flex items-center gap-3" testId={`cart-line-${c.productId}`} agent={{ "data-agent-product": c.productId, "data-agent-name": p.name, "data-agent-incart": c.qty, "data-agent-price": unitPrice(p, vip) }}>
               <ProductArt p={p} size={56} />
               <div className="flex-1 min-w-0"><div className="text-[13px] font-bold truncate">{p.name}</div><div className="text-[11px] text-cd-muted">{p.size} · {rupees(unitPrice(p, vip))}</div></div>
               <Stepper value={c.qty} onChange={(q) => setQty(c.productId, q)} />
@@ -228,7 +240,7 @@ export function Cart() {
             <div className="text-[11px] text-cd-muted">Amount will only be charged after the products are delivered.{tomorrowSubs ? ` Your subscriptions for that day (${rupees(tomorrowSubs)}) are delivered with it.` : ""}</div>
           </Card>
         </div>)}
-      {d.cart.length > 0 && <div className="absolute bottom-[86px] left-0 right-0 px-4 z-10"><PriceCta price={rupees(total + 1)} label="Place order" testId="place-order" onClick={() => { const o = placeCartOrder(); if (o) { setPaid(o.date); toast("Order placed"); } }} /></div>}
+      {d.cart.length > 0 && <div className="absolute bottom-[86px] left-0 right-0 px-4 z-10"><PriceCta price={rupees(total + 1)} label="Place order" testId="place-order" tier="T4" onClick={() => { const o = placeCartOrder(); if (o) { setPaid(o.date); toast("Order placed"); } }} /></div>}
     </div>
   );
 }

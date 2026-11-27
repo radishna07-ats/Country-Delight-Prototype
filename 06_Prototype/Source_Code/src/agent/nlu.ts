@@ -6,7 +6,8 @@ import { addDays, earliestChangeDate, findProducts, isGenericMilk, today, weekda
 export type Intent =
   | "human" | "medical" | "wellness" | "delivery_issue" | "delivery_prefs" | "wallet_deduction" | "wallet_refund"
   | "payment_failed" | "payment_request" | "cashback" | "vip" | "smart_recharge" | "wallet_balance" | "end_vacation" | "vacation" | "pause_subscription"
-  | "remove_subscription" | "change_subscription" | "add_subscription" | "add_to_cart" | "cart_view" | "tomorrow_order"
+  | "remove_subscription" | "change_subscription" | "add_subscription" | "add_to_cart" | "cart_view" | "cart_remove" | "cart_qty" | "tomorrow_order"
+  | "ui_find" | "open_product" | "screen_query" | "ui_tap" | "ui_fill" | "ui_scroll" | "ui_back"
   | "offers" | "navigate" | "greet" | "thanks" | "yes" | "no" | "unknown";
 
 export interface Parsed {
@@ -23,6 +24,13 @@ export interface Parsed {
   qtyLimit?: number;
   /** A second, different request in the same message ("pause deliveries and increase my milk"). Handled one at a time. */
   also?: { intent: Intent; text: string };
+  /** In-app operator entities */
+  find?: { query: string; maxPrice?: number; minPrice?: number; pick?: "best_rated" | "cheapest" | "most_reviewed" | "first"; add: boolean };
+  ordinal?: number | "last" | "cheapest" | "best_rated";   // "the first one", "the cheapest one" — resolved against the screen
+  deictic?: boolean;                                        // "this", "this one", "this product"
+  tapTarget?: string;
+  fillText?: string; fillField?: string;
+  scrollDir?: "up" | "down";
   frequency?: Frequency;
   weekday?: number;
   amount?: number;
@@ -47,7 +55,7 @@ export function parseQty(t: string): number | undefined {
   }
   for (const [w, n] of Object.entries(NUM)) {
     if (w.length <= 2 && !["do", "ek"].includes(w)) continue; // avoid "a"/"an" noise
-    if (new RegExp(`\\b${w}\\b\\s+(more\\s+|extra\\s+|additional\\s+)?(packets?|packs?|pouches?|units?|bottles?|litres?|milk|paneer|coconuts?|eggs?|dahi|curd|bread|packet)`).test(t)) return n;
+    if (new RegExp(`\\b${w}\\b\\s+(more\\s+|extra\\s+|additional\\s+)?(packets?|packs?|pouches?|units?|bottles?|litres?|milk|paneer|coconuts?|eggs?|dahi|curd|bread|packet|of (?:this|these|them|it|those)|tubs?|jars?)`).test(t)) return n;
   }
   return undefined;
 }
@@ -116,6 +124,23 @@ const SCREENS: [RegExp, string][] = [
   [/wellness/, "wellness"], [/menu/, "menu"], [/home/, "home"], [/products?|shop/, "products"],
 ];
 
+const PRICE_MAX = /\b(?:under|below|less than|within|upto|up to|max(?:imum)?|cheaper than|not more than|budget(?: of)?)\s*(?:₹|rs\.?|inr|rupees)?\s*([\d,]+(?:\.\d+)?)\s*(k|thousand)?(?:\s*(?:rupees|rs\b|₹))?/;
+const PRICE_MIN = /\b(?:above|over|more than|at least|minimum)\s*(?:₹|rs\.?|inr|rupees)?\s*([\d,]+(?:\.\d+)?)\s*(k|thousand)?(?:\s*(?:rupees|rs\b|₹))?/;
+const PICK = /\b(best[- ]?rated|top[- ]?rated|highest[- ]?rated|best reviewed|cheapest|lowest[- ]?priced|least expensive|most popular|most reviewed)\b/;
+const money = (m: RegExpMatchArray | null) => (m ? Number(m[1].replace(/,/g, "")) * (m[2] ? 1000 : 1) : undefined);
+
+function parseFind(t: string): NonNullable<Parsed["find"]> {
+  const pk = t.match(PICK)?.[1] ?? "";
+  const pick = /cheap|lowest|least/.test(pk) ? "cheapest" : /popular|most reviewed/.test(pk) ? "most_reviewed" : pk ? "best_rated" : undefined;
+  const add = /\badd\b|\bput\b.{0,30}\bcart\b|\bbuy\b|\bto (my|the) cart\b/.test(t);
+  let q = (t.match(/\b(?:find|search(?: for)?|look(?:ing)? for|get me|show me|browse|buy|add|i want|i need)\s+(.*)/)?.[1] ?? t);
+  q = q.split(/\b(?:under|below|less than|within|upto|up to|above|over|more than|between|and|then|to my cart|to the cart|in my cart|into my cart|with|that|which|for me|priced|costing|budget|rated)\b|[.,!?]/)[0];
+  q = q.replace(/^\s*(?:me|us)\s+/, "").replace(/^\s*(?:a|an|some|the|any|good|nice|one)\s+/g, "")
+    .replace(/\b(best[- ]?rated|top[- ]?rated|highest[- ]?rated|best reviewed|cheapest|lowest[- ]?priced|least expensive|most popular|most reviewed|best|top)\b/g, " ")
+    .replace(/^\s*(?:a|an|some|the|any)\s+/g, "").replace(/\b(option|options|product|products|one|please|item|items)\b/g, " ").replace(/\s+/g, " ").trim();
+  return { query: q, maxPrice: money(t.match(PRICE_MAX)), minPrice: money(t.match(PRICE_MIN)), pick, add };
+}
+
 const ACTIONABLE = new Set<Intent>(["vacation", "pause_subscription", "end_vacation", "remove_subscription", "change_subscription", "add_subscription",
   "add_to_cart", "wallet_refund", "delivery_issue", "delivery_prefs", "wallet_deduction"]);
 
@@ -125,7 +150,10 @@ export function parse(input: string, clock: string, nested = false): Parsed {
   const t = ` ${lower(input).trim()} `;
   const products = findProducts(input);
   const base: Parsed = { intent: "unknown", text: input, products, genericMilk: isGenericMilk(input), hinglish: HINGLISH.test(t), ...parseFrequency(t) };
-  base.qty = parseQty(t);
+  base.qty = parseQty(t.replace(PRICE_MAX, " ").replace(PRICE_MIN, " "));
+  const ord = t.match(/\b(?:the\s+)?(first|1st|second|2nd|third|3rd|fourth|last|cheapest|best[- ]?rated|top[- ]?rated)\s+(?:one|option|product|item|result)\b/);
+  if (ord) base.ordinal = /first|1st/.test(ord[1]) ? 1 : /second|2nd/.test(ord[1]) ? 2 : /third|3rd/.test(ord[1]) ? 3 : /fourth/.test(ord[1]) ? 4 : ord[1] === "last" ? "last" : /cheap/.test(ord[1]) ? "cheapest" : "best_rated";
+  if (/\bthis( one| product| item)?\b|\bthat one\b/.test(t)) base.deictic = true;
   base.amount = parseAmount(input);
   base.range = parseRange(t, clock);
   if (base.range?.invalid) {
@@ -146,6 +174,19 @@ export function parse(input: string, clock: string, nested = false): Parsed {
     if (has(/\b(diabet\w*|pregnan\w*|blood pressure|\bbp\b|cholesterol|kidney|thyroid|pcos|medicine|medication|my doctor|disease|heart patient|surgery)\b/)) return "medical";
     if (has(/\b(work ?out|workouts|working out|started training|gym|fitness|exercis\w*|protein intake|muscle|wellness|weight loss|lose weight|healthy eating|nutrition)\b/)) return "wellness";
     if (has(/\b(pay (for|my)|make (a |the )?payment|place (the |my )?order|checkout|check out|recharge (my wallet )?(with|for) ₹?\d+)\b/)) return "payment_request";
+    if (has(/\bwhat('?s| is) (on |in )?(this|the|my) (screen|page)\b|\bwhat am i (looking at|seeing)\b|\bwhere am i\b|\bwhat can i do (here|on this)\b|\b(read|describe) (this|the) (screen|page)\b/)) return "screen_query";
+    if (has(/^\s*(please\s+)?(go\s+)?back\s*[.!]?\s*$|\bgo back\b|\bprevious (screen|page)\b/)) return "ui_back";
+    { const m = t.match(/\bscroll\s+(down|up)\b/); if (m) { base.scrollDir = m[1] as "up" | "down"; return "ui_scroll"; } }
+    { const m = input.match(/\b(?:type|enter|write|fill in|put)\s+["“']?(.+?)["”']?\s+(?:in|into)\s+(?:the\s+)?(.+?)(?:\s+(?:field|box|bar))?\s*[.!]?$/i);
+      if (m && !/\bcart\b/i.test(m[2])) { base.fillText = m[1].trim(); base.fillField = m[2].trim(); return "ui_fill"; } }
+    { const m = t.match(/^\s*(?:please\s+)?(?:tap|click|press|hit|select|choose)\s+(?:on\s+)?(.+?)\s*[.!]?\s*$/); if (m && !m[1].match(/\b(first|second|third|last|cheapest)\b/)) { base.tapTarget = m[1].replace(/\b(the|button|tab)\b/g, " ").replace(/\s+/g, " ").trim(); return "ui_tap"; } }
+    if (has(/\b(remove|delete|take out|drop|take off)\b/) && has(/\bcart\b/)) return "cart_remove";
+    if (has(/\bcart\b/) && has(/\b(increase|decrease|reduce|make it|make|change|set|update|only|instead)\b/) && (products.length || base.deictic) && !has(/\badd\b/)) return "cart_qty";
+    if (has(/\b(find|search|look(ing)? for|get me|browse)\b/) || (has(/\bshow me\b/) && (products.length || PRICE_MAX.test(t) || PICK.test(t))) || (PICK.test(t) && !base.ordinal && has(/\b(add|buy|get|order|want|need)\b/)) || (PRICE_MAX.test(t) && has(/\b(add|buy|want|need)\b/) && !base.amount)) {
+      const f = parseFind(t);
+      if (f.query && !SCREENS.some(([re]) => re.test(` ${f.query} `)) || (f.query && products.length)) { base.find = f; return "ui_find"; }
+    }
+    if (has(/^\s*(please\s+)?(open|show|view|go to)\b/) && products.length === 1 && !has(/\b(subscription|order|cart|vacation|wallet)\b/)) return "open_product";
     if (has(/\bcash ?back\b/)) return "cashback";
     if (has(/\b(vip|membership|member price|benefit (balance|amount|left))\b/)) return "vip";
     if (has(/\b(not|n't|nahi|nhi)\b.{0,25}\b(arriv\w*|come|came|received|deliver\w*|aaya|aayi|mila)\b|\b(hasn'?t|didn'?t|haven'?t)\b.{0,20}\b(arriv\w*|come|receiv\w*|deliver\w*|get)\b|\bmissing\b|\bleak\w*\b|\bdamag\w*\b|\bbroken\b|\bwrong (item|product|milk)\b|\bspoil\w*\b|\bsour\b|\bwhere is my (milk|order|delivery)\b|\babhi tak\b/)) return "delivery_issue";
@@ -167,6 +208,7 @@ export function parse(input: string, clock: string, nested = false): Parsed {
     if ((base.frequency && base.frequency !== "once") && (products.length || base.genericMilk) && has(/\b(add|subscribe|start|send|deliver|bhej|chahiye|want|get)\b/)) return "add_subscription";
     if (has(/\b(subscribe|subscription)\b/) && products.length) return "add_subscription";
     if (has(/\b(add|order|buy|get|send|bhej\w*|chahiye|want|need|cart)\b/) && (products.length || base.genericMilk)) return "add_to_cart";
+    if (has(/\b(add|buy|put)\b/) && (base.deictic || base.ordinal || has(/\badd it\b/))) return "add_to_cart";
     if (has(/\b(open|go to|show|take me|navigate|where is|kahan)\b/) && SCREENS.some(([re]) => re.test(t))) return "navigate";
     if (has(/\b(hi|hello|hey|namaste|what can you do|help me|how does this work)\b/)) return "greet";
     if (has(/\b(thanks|thank you|thx|shukriya|dhanyavaad)\b/)) return "thanks";

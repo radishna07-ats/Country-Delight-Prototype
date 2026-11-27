@@ -80,7 +80,7 @@ const Toggle = ({ label, on, onChange, testId }: { label: string; on: boolean; o
   <label className="flex items-center justify-between gap-2 text-[11.5px]"><span>{label}</span><input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} className="accent-[#2FA84F] w-4 h-4" data-testid={testId} /></label>);
 
 const KIND: Record<ToolCallLog["kind"], { label: string; cls: string }> = {
-  api_tool: { label: "API TOOL", cls: "bg-blue-50 text-blue-700" }, app_action: { label: "APP ACTION", cls: "bg-cd-mint text-cd-green" }, component: { label: "COMPONENT", cls: "bg-purple-50 text-purple-700" },
+  api_tool: { label: "API TOOL", cls: "bg-blue-50 text-blue-700" }, app_action: { label: "APP ACTION", cls: "bg-cd-mint text-cd-green" }, screen: { label: "SCREEN", cls: "bg-amber-50 text-amber-800" }, component: { label: "COMPONENT", cls: "bg-purple-50 text-purple-700" },
   friction: { label: "FRICTION", cls: "bg-amber-50 text-amber-700" }, policy: { label: "RULE / POLICY", cls: "bg-orange-50 text-orange-700" }, workflow: { label: "WORKFLOW", cls: "bg-teal-50 text-teal-700" },
   nlu: { label: "INTENT", cls: "bg-gray-100 text-gray-700" }, guardrail: { label: "GUARDRAIL", cls: "bg-rose-50 text-rose-700" },
 };

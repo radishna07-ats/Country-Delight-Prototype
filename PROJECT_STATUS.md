@@ -11,10 +11,10 @@
 | Audit and RCA | ✅ | 19 friction points, root causes, prioritisation workbook |
 | Journeys, personas, use cases | ✅ | Current and enhanced journeys, 6 use cases plus A1–A7, sequence diagrams |
 | Architecture, security, pilot, roadmap | ✅ | 6 documents in 05 |
-| Prototype | ✅ | All 6 use cases demonstrable; 78/78 unit tests and 19/19 E2E tests |
+| Prototype | ✅ | All 6 use cases demonstrable; screen-aware agent that operates the app; compact bottom-docked assistant; 100/100 unit tests and 24/24 E2E tests |
 | Financial model | ✅ | 3 scenarios, 22 sensitivity cases, 0 formula errors |
 | Sales enablement | ✅ | 30-slide deck, pitch, CTO guide, demo script |
-| QA | ✅ | 122/122 test cases; 21 defects found and fixed; 0 open |
+| QA | ✅ | 151/151 test cases; 28 defects found and fixed; 0 open |
 
 ## 2. Completed in the final QA pass
 
@@ -24,6 +24,13 @@
 - Deck, pitch and CTO guide now state on every prototype screen that the prototype runs on simulated data (D-21).
 - Conversation is announced to screen readers (D-20).
 - QA report, functional test case workbook, validation checklist, and the project brief, execution plan and decision log.
+
+## 2a. Client review changes (27 Nov 2026)
+
+- **Context-aware agent (D-22).** It reads the live screen (inputs, buttons, products with price and rating, cart) before every decision and after every action. It then does the task in the app: navigate, search, sort, choose, tap Add, change quantities, verifying on screen. Example: "Find me a protein powder under ₹2,000 and add the best-rated option to my cart."
+- **Compact assistant (D-23).** Bottom-docked bar with one reply bubble; it expands only for components and folds back; the app stays visible and usable.
+- **Microphone (D-24).** Asked once and reused; clear guidance if blocked; claude.ai dictation on the hosted page.
+- Product ratings and three protein-powder SKUs were added as **illustrative** catalogue data for the operator demo.
 
 ## 3. Pending
 

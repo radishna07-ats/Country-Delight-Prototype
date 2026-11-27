@@ -33,6 +33,11 @@ E2E_STEPS = {
     "E17": ("Open My Subscriptions three times within 45 s", "One quiet suggestion appears"),
     "E18": ("Open at 390 x 844", "No horizontal scroll; Demo button visible"),
     "E19": ("Whole run", "No uncaught page errors"),
+    "E20": ("Home > open assistant > type: Find me a protein powder under Rs 2,000 and add the best-rated option to my cart", "Live step line shown; app search has the query; Top rated sort active; whey 1 kg (4.6, under budget) added; cart badge 1; reply gives the reason"),
+    "E21": ("Say: Open greek yogurt, then: Add two of this to my cart", "Product page opened; one-time chosen, quantity 2, Add to cart pressed; cart line shows 2"),
+    "E22": ("Open assistant, tap Products in the app", "Bar under 64 px; compact assistant covers under 35% of the screen; app navigates while the assistant stays open"),
+    "E23": ("Run s2 (card), Collapse, Show details", "Panel opens for the card and leaves the top of the app visible; collapses; reopens"),
+    "E24": ("Fake microphone: tap mic on/off three times; separate run with permission denied", "getUserMedia called once; denied state explains how to allow the microphone"),
 }
 
 MANUAL = [
@@ -44,6 +49,8 @@ MANUAL = [
     ("M06", "Prototype - Conversational QA", "Hinglish and mixed-language input", "mera doodh abhi tak nahi aaya; doodh 2 kar do", "Correct intent; Hinglish reply", "PASS", "Unit NLU; E08"),
     ("M07", "Prototype - Accessibility", "Labels, roles and motion", "aria-labels on icon buttons; role=switch on toggles; prefers-reduced-motion", "Present", "PASS", "Code review"),
     ("M08", "Prototype - Build", "Type check and production build", "npm run typecheck; npm run build", "0 type errors; build succeeds", "PASS", "tsc --noEmit; vite build"),
+    ("M09", "Prototype - Design QA", "Compact dock at phone size", "iPhone 13 emulation; run the protein journey", "No horizontal scroll; bar, bubble and step line clear of app CTAs and the Demo button", "PASS", "Screenshots in QA run; D-28 fixed"),
+    ("M10", "Prototype - Build", "Standalone file passes the same E2E suite", "E2E_URL=file://.../Demo_Standalone.html", "24/24", "PASS", "tests/e2e/e2e-results-alt.json"),
     ("F01", "Financial QA", "Formula errors", "LibreOffice full recalculation; scan every cell", "0 errors", "PASS", "CountryDelight_Revenue_Model.xlsx"),
     ("F02", "Financial QA", "Streams reconcile to total", "Use Cases sheet check row", "0.000000 in all scenarios", "PASS", "Use Cases check row"),
     ("F03", "Financial QA", "Independent recomputation", "Python re-implementation of the Base case", "Rs 162.3 L/month matches", "PASS", "ROI_Analysis.md"),

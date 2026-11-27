@@ -39,7 +39,7 @@ export function WhatsAppScreen() {
     }
     return () => ui.set((x) => ({ ...x, channel: "inapp" }));
   }, []);
-  useEffect(() => { end.current?.scrollIntoView({ behavior: "smooth" }); }, [s.waMessages.length, s.thinking]);
+  useEffect(() => { end.current?.scrollIntoView?.({ behavior: "smooth" }); }, [s.waMessages.length, s.thinking]);
   const last = [...s.waMessages].reverse().find((m) => m.role === "agent");
   const chips = s.waMessages[s.waMessages.length - 1]?.role === "agent" ? last?.chips ?? [] : [];
   const send = () => { if (text.trim()) { void userSays(text, "whatsapp"); setText(""); } };

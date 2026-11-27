@@ -23,9 +23,13 @@ const inapp = (first: string, autoplay: boolean, screen: Parameters<typeof navig
 const morningIssue = () => db.set((s) => ({ ...s, clock: "2026-11-22T05:40", orders: s.orders.map((o) => (o.date === "2026-11-22" ? { ...o, status: "delivered", statusAt: "05:12", pod: { at: "05:12", note: "Left at building gate", photo: "gate" } } : o)) }));
 
 export const SCENARIOS: Scenario[] = [
-  { id: "s1", uc: "UC3", title: "Add to cart by voice or chat", channel: "In-app", summary: "“Add two packets of milk to my cart.” The agent clarifies the milk, shows product cards, adds after the tap and reads back the cart.",
-    lines: ["Add two packets of milk to my cart.", "Add one paneer to my cart", "Where can I see tomorrow's order?"],
-    points: ["Clarifies instead of guessing (cow vs buffalo).", "Cart is not checkout — the agent never pays.", "Inspector: add_to_cart is an in-app action (T1) with a verified read-back."],
+  { id: "s0", uc: "UC3", title: "Agent operates the app", channel: "In-app", summary: "“Find me a protein powder under ₹2,000 and add the best-rated option to my cart.” The agent reads the screen, opens search, types the query, sorts by rating, filters by price, taps Add and checks the cart, all in the app.",
+    lines: ["Find me a protein powder under ₹2,000 and add the best-rated option to my cart.", "What's on this screen?", "Open greek yogurt", "Add two of this to my cart", "Remove the protein powder from my cart", "Show me paneer under 120", "Add the first one to my cart", "Open my subscriptions"],
+    points: ["Screen context is read before every decision and re-read after every action (inspector: SCREEN rows).", "Actions go through the app's own UI: tap, type, sort, navigate. A green ring shows what the agent touches; Stop halts it.", "Guardrails are enforced in the action layer: it never presses Pay or Place order (T4) and needs your confirmation for account changes (T2)."],
+    run: (a) => { fresh(); inapp("Find me a protein powder under ₹2,000 and add the best-rated option to my cart.", a); } },
+  { id: "s1", uc: "UC3", title: "Add to cart by voice or chat", channel: "In-app", summary: "“Add two packets of milk to my cart.” The agent opens the milk options on screen, asks which one (usual first), then adds it through the app and reads back the cart.",
+    lines: ["Add two packets of milk to my cart.", "Add one paneer to my cart", "What's in my cart?", "Where can I see tomorrow's order?"],
+    points: ["Clarifies instead of guessing (cow vs buffalo), with the options visible in the app.", "Cart is not checkout: the agent never pays.", "Inspector: each tap is an in-app action (T1), verified by re-reading the screen."],
     run: (a) => { fresh(); inapp("Add two packets of milk to my cart.", a); } },
   { id: "s2", uc: "UC5", title: "Change a subscription with a card", channel: "In-app", summary: "“Add one more packet of milk to my regular subscription.” Current → proposed, effective date, price impact, Confirm, Undo — no screen hopping.",
     lines: ["I want to add one more packet of milk to my regular subscription.", "Change my coconut water to daily", "Stop my curd"],

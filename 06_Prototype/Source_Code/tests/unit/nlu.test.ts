@@ -101,3 +101,38 @@ describe("date edge cases", () => {
   });
 });
 
+
+describe("in-app operator intents", () => {
+  it("find with price ceiling, rating preference and add", () => {
+    const p = parse("Find me a protein powder under ₹2,000 and add the best-rated option to my cart.", CLOCK);
+    expect(p.intent).toBe("ui_find");
+    expect(p.find).toEqual({ query: "protein powder", maxPrice: 2000, minPrice: undefined, pick: "best_rated", add: true });
+    expect(p.qty).toBeUndefined();
+  });
+  it("search without adding", () => {
+    expect(parse("Show me paneer under 120", CLOCK).find).toMatchObject({ query: "paneer", maxPrice: 120, add: false });
+    expect(parse("search for greek yogurt", CLOCK).intent).toBe("ui_find");
+  });
+  it("screen, tap, type, scroll, back", () => {
+    expect(parse("What's on this screen?", CLOCK).intent).toBe("screen_query");
+    expect(parse("Tap top rated", CLOCK)).toMatchObject({ intent: "ui_tap", tapTarget: "top rated" });
+    expect(parse("Type almonds into the search box", CLOCK)).toMatchObject({ intent: "ui_fill", fillText: "almonds", fillField: "search" });
+    expect(parse("scroll down", CLOCK)).toMatchObject({ intent: "ui_scroll", scrollDir: "down" });
+    expect(parse("go back", CLOCK).intent).toBe("ui_back");
+  });
+  it("references to what is on screen", () => {
+    expect(parse("Add two of this to my cart", CLOCK)).toMatchObject({ intent: "add_to_cart", deictic: true, qty: 2 });
+    expect(parse("Add the first one to my cart", CLOCK)).toMatchObject({ intent: "add_to_cart", ordinal: 1 });
+    expect(parse("open greek yogurt", CLOCK).intent).toBe("open_product");
+  });
+  it("cart changes", () => {
+    expect(parse("Remove the protein powder from my cart", CLOCK).intent).toBe("cart_remove");
+    expect(parse("Change the paneer in my cart to 3", CLOCK)).toMatchObject({ intent: "cart_qty", qty: 3 });
+  });
+  it("existing intents are unaffected", () => {
+    expect(parse("Add two packets of milk to my cart.", CLOCK).intent).toBe("add_to_cart");
+    expect(parse("Please pay for my order", CLOCK).intent).toBe("payment_request");
+    expect(parse("Pause my delivery for the next three days", CLOCK).intent).toBe("vacation");
+    expect(parse("open my subscriptions", CLOCK).intent).toBe("navigate");
+  });
+});

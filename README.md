@@ -19,8 +19,8 @@ An evidence-based proposal for an AI assistance layer across Country Delight's a
 
 Three ways to run it, easiest first:
 
-1. **Hosted link (no install):** https://claude.ai/artifact/6PBj2aEbdkCtro7HiFwXC8. It is private until you share it from the page's Share menu. Microphone input is blocked there, so voice uses the tap-to-speak phrases.
-2. **Double-click file (offline):** open [`06_Prototype/Demo_Standalone.html`](06_Prototype/Demo_Standalone.html) in Chrome or Edge. Real microphone input works here after you allow it.
+1. **Hosted link (no install):** https://claude.ai/artifact/6PBj2aEbdkCtro7HiFwXC8. It is private until you share it from the page's Share menu. Voice uses claude.ai dictation, which asks once.
+2. **Double-click file (offline):** open [`06_Prototype/Demo_Standalone.html`](06_Prototype/Demo_Standalone.html) in Chrome or Edge. The microphone is asked for once per page load (a local file can't keep the permission after it is closed).
 3. **From source (needs Node 18+):**
 
 ```bash

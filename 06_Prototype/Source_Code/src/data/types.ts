@@ -3,9 +3,9 @@
 
 export type ArtKind =
   | "pouch" | "tetra" | "tub" | "block" | "jar" | "bottle" | "coconut" | "eggs"
-  | "bread" | "banana" | "leafy" | "papaya" | "bag" | "nuts" | "cup" | "batter";
+  | "bread" | "banana" | "leafy" | "papaya" | "bag" | "nuts" | "cup" | "batter" | "powder";
 
-export type Category = "milk" | "dairy" | "breakfast" | "fruits" | "veggies" | "staples" | "snacks";
+export type Category = "milk" | "dairy" | "breakfast" | "fruits" | "veggies" | "staples" | "snacks" | "nutrition";
 export type Frequency = "daily" | "alternate" | "weekly" | "once";
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0 = Sunday
 
@@ -28,6 +28,8 @@ export interface Product {
   badge?: string;
   description: string;
   aliases: string[];        // words customers use: "doodh", "milk packet"
+  rating?: number;          // ILLUSTRATIVE customer rating (1–5) for the operator demo; not observed in CD's app
+  reviews?: number;         // ILLUSTRATIVE number of ratings
 }
 
 export interface CartLine { productId: string; qty: number; date: string }

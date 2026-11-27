@@ -72,7 +72,7 @@ export interface Msg {
 }
 
 export interface ToolCallLog {
-  id: string; at: number; name: string; kind: "api_tool" | "app_action" | "component" | "friction" | "policy" | "workflow" | "nlu" | "guardrail";
+  id: string; at: number; name: string; kind: "api_tool" | "app_action" | "screen" | "component" | "friction" | "policy" | "workflow" | "nlu" | "guardrail";
   args?: unknown; status: "pending" | "ok" | "refused" | "error" | "info"; ms?: number; tier?: string; channel?: Channel; note?: string;
 }
 
@@ -80,8 +80,11 @@ export interface UiState {
   version: number;
   route: Route;
   history: Route[];
-  agentOpen: boolean;
-  voiceOpen: boolean;
+  agentOpen: boolean;            // assistant bar is active (compact, docked at the bottom)
+  agentExpanded: boolean;        // expanded panel: only for components, results or the full conversation
+  agentPinned: boolean;          // the customer expanded it themselves (don't auto-collapse)
+  voiceOpen: boolean;            // voice mode requested (listening happens inside the bar)
+  operator: { step: string; running: boolean } | null; // what the agent is doing in the app right now
   channel: Channel;              // which channel the active conversation is on
   messages: Msg[];               // active conversation (persisted)
   waMessages: Msg[];             // WhatsApp simulator thread
@@ -98,17 +101,17 @@ export interface UiState {
   splash: boolean;
 }
 
-const UI_VERSION = 3;
+const UI_VERSION = 4;
 const initUi = (): UiState => ({
   version: UI_VERSION,
-  route: { screen: "home" }, history: [], agentOpen: false, voiceOpen: false, channel: "inapp",
+  route: { screen: "home" }, history: [], agentOpen: false, agentExpanded: false, agentPinned: false, voiceOpen: false, operator: null, channel: "inapp",
   messages: [], waMessages: [], callMessages: [], thinking: false, toast: null, inspectorOpen: true,
   faults: { failNext: false, slow: false }, speak: false, nudge: null, nudgesShown: 0, lastNudgeAt: 0, incoming: null, splash: true,
 });
 
 export const ui = createStore<UiState>("cd-graine-ui", initUi, UI_VERSION);
 // transient bits never survive a reload
-ui.set((s) => ({ ...s, thinking: false, toast: null, voiceOpen: false, incoming: null, nudge: null }));
+ui.set((s) => ({ ...s, thinking: false, toast: null, voiceOpen: false, operator: null, agentExpanded: false, agentPinned: false, incoming: null, nudge: null }));
 export const useUi = () => useSyncExternalStore(ui.subscribe, ui.get);
 
 export function navigate(screen: Screen, params?: Record<string, string>) {

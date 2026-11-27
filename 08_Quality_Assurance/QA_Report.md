@@ -7,10 +7,10 @@ Test-by-test results are in [`Functional_Test_Cases.xlsx`](Functional_Test_Cases
 
 | Area | Result | Evidence |
 |---|---|---|
-| Prototype unit and scenario tests (Vitest) | **78 / 78 pass** | `npm test` |
-| Prototype end-to-end UI tests (Playwright, Chromium) | **19 / 19 pass** | `npm run test:e2e` → `tests/e2e/e2e-results.json` |
+| Prototype unit and scenario tests (Vitest), including the in-app operator against the rendered app | **100 / 100 pass** | `npm test` |
+| Prototype end-to-end UI tests (Playwright, Chromium), on the served build and on the standalone file | **24 / 24 pass** (both) | `npm run test:e2e` → `tests/e2e/e2e-results.json` |
 | TypeScript strict typecheck and production build | Pass, 0 errors | `npm run typecheck`, `npm run build` |
-| Functional test case register | **122 / 122 pass** across 11 areas | `Functional_Test_Cases.xlsx` |
+| Functional test case register | **151 / 151 pass** across 11 areas | `Functional_Test_Cases.xlsx` |
 | Financial model recalculation | **0 formula errors in 2,844 formulas**; streams reconcile to 0 | LibreOffice recalculation (§4) |
 | Other workbooks (evidence, friction, prioritisation, tests) | 0 errors | Same recalculation |
 | Sales deck | Validation passed; 30 slides render | `validate.py`; PDF render |
@@ -18,7 +18,7 @@ Test-by-test results are in [`Functional_Test_Cases.xlsx`](Functional_Test_Cases
 | Internal links in all Markdown files | 0 broken | Link check (§7) |
 | Privacy scans | 0 findings in client-facing files | §5 |
 | Production-claim scan | 0 misleading claims | §6 |
-| Defects found and fixed | **21** (D-01 to D-21); **0 open** | §8 |
+| Defects found and fixed | **28** (D-01 to D-28); **0 open** | §8 |
 
 **Verdict.** Everything the brief's §14 asks for has been tested. Every defect found has been fixed and re-tested, and no critical defect is open. What has not been tested is listed in §9.
 
@@ -140,19 +140,21 @@ Recalculated in LibreOffice (headless) on 21 Nov 2026.
 
 ## 8. Defects
 
-Twenty-one defects were found and fixed: D-01 to D-13 during build and the first QA pass, and D-14 to D-21 in this pass. The full log is in [`../06_Prototype/Test_Results.md`](../06_Prototype/Test_Results.md). The most important ones were:
+Twenty-eight defects were found and fixed: D-01 to D-13 during build and the first QA pass, D-14 to D-21 in the second pass, and D-22 to D-28 from the client review (screen-aware operator, compact dock, microphone permission) and its retest. The full log is in [`../06_Prototype/Test_Results.md`](../06_Prototype/Test_Results.md). The most important ones were:
 
 - **D-18 (high):** reversed dates produced a 34-day pause. Reversed ranges are now refused.
 - **D-01:** the wallet explanation named the wrong trigger balance.
 - **D-12:** a payment request was not refused explicitly.
 - **D-11:** the prioritisation weights summed to 80%.
 - **D-21:** the deck did not say that the prototype runs on simulated data.
+- **D-22 to D-24 (client review):** the agent did not use the screen or act in the app; the assistant covered 86% of the screen; the HTML demo asked for the microphone on every tap.
 
 ## 9. Not tested / known limitations
 
 - **No real integrations.** Every Country Delight API, Graine runtime call, WhatsApp delivery and telephony leg is simulated. Latency, authentication, rate limits and failure modes of the real systems are untested and are part of the pilot plan.
 - **Language understanding is rule-based.** It covers the demo vocabulary plus common English and Hinglish variants. Graine's production model will behave differently and needs its own evaluation set; the cases in `tests/unit` are a starting point.
-- **Browsers:** tested in Chromium only. Real speech recognition needs Chrome or Edge; the simulated voice fallback works everywhere. The real microphone path was not tested headless.
+- **Browsers:** tested in Chromium only. Real speech recognition needs Chrome or Edge; the simulated voice fallback works everywhere. The microphone permission flow was tested with a fake device (one `getUserMedia()` call across repeated taps; denied-state guidance); real speech was not tested headless. claude.ai dictation on the hosted page could not be tested from here.
+- **In-app operator:** the planner is rule-based and covers the actions listed in the prototype README (search, sort, filter by price and rating, add, change and remove in the cart, open products and screens, tap, type, scroll, back). Production would use Graine's model runtime with the app's declared action handlers through the SDK.
 - **Accessibility:** basic checks only; no expert WCAG audit.
 - **Financial model:** illustrative baseline (§4).
 - **Business rules from the FAQ:** the 11 pm cut-off and the 60-day vacation limit are applied as published. The VIP pause rule is contradictory in the FAQ and must be confirmed with Country Delight.

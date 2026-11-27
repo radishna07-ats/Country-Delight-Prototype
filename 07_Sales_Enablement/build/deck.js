@@ -279,11 +279,11 @@ async function icon(Comp, color, size = 256) {
      ["Measure", ["First-contact resolution, time to resolution, 30-day retention after an incident vs control"]]],
     "Pilot", "WhatsApp · Voice · In-app",
     "Demo scenarios 5, 5w, 5c. Point out the remedies come from a policy service — the model never decides money. Then the A3 add-on: offer 'call before delivery' after a doorstep complaint, using a preference you already have.");
-  ucSlide("USE CASE 3 · IN-APP CONVERSATIONAL AGENT", "Ask in plain words, see it on screen, confirm", ["02_uc3_add_to_cart.png", "04_uc3_voice_vacation.png"],
-    [["What it does", ["Understands, clarifies (“cow or buffalo?”), shows product cards, adds after the tap", "Voice for intent, screen for confirmation: vacations checked against the 11 pm cut-off and 60-day rule", "Navigates (“where is tomorrow's order?”) and helps only when friction is detected"]],
-     ["How it works", ["Graine SDK: screen context + declared action handlers in your app", "Cart is not checkout; the customer always pays"]]],
+  ucSlide("USE CASE 3 · IN-APP CONVERSATIONAL AGENT", "It sees the screen and does the task in the app", ["17_uc3_operator_working.png", "18_uc3_operator_done.png"],
+    [["What it does", ["Reads the screen it's on: fields, buttons, products, prices, ratings, cart", "Does the task in the app: searches, sorts, chooses, adds, changes quantities, navigates, and checks each step on screen", "“Protein powder under ₹2,000, best-rated, add it”: done in the app, with the reason for the choice"]],
+     ["How it works", ["Graine SDK: screen context + declared action handlers in your app (Navigate, Fill a field, Highlight, tap)", "Compact assistant bar; never presses Pay or Place order; account changes need the customer's Confirm"]]],
     "Phase 2", "In-app voice and chat",
-    "Demo scenarios 1 and 3. Open the inspector: every intent, tool, rule check and confirmation is visible — evidence the agent only acts through declared actions.");
+    "Demo scenario “Agent operates the app”, then scenarios 1 and 3. Watch the app, not the chat: the green ring shows what it touches. Open the inspector: SCREEN rows are what it saw, APP ACTION rows are what it did — evidence it acts only through declared actions and verifies the result.");
   ucSlide("USE CASE 5 · CONVERSATIONAL SUBSCRIPTIONS", "Subscriptions changed in one card, not three screens", ["03_uc5_subscription_card.png", "15_my_subscriptions.png"],
     [["The card", ["Now → new quantity or frequency, effective date, per-delivery and monthly price", "Offer impact shown before the change (e.g. 4 pe 4 voids on frequency change)", "Confirm, then Undo for two minutes; My Subscriptions updates instantly"]],
      ["Save flow (A2)", ["“Stop my curd” → why? → pause, vacation or less often → remove only if still wanted"]],

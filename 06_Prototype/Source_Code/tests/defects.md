@@ -23,10 +23,17 @@
 | D-19 | “Set my milk to 0” proposed 2; “50 packets” proposed +1 | Edge-case probe (invalid quantity) | 0 offers pause/remove; unusually large quantities go to a person |
 | D-20 | Agent replies were not announced to screen readers | Accessibility review (§14.4) | Conversation is a `role="log"` polite live region |
 | D-21 | Deck, pitch and CTO guide said “working prototype” without stating that it runs on simulated data | Claims audit (§19 “no misleading production claims”) | Caption on every prototype screen in the deck, disclosure in the executive summary, and a “say once” line in the pitch and CTO guide |
+| D-22 | **Client review.** The agent didn't use the screen: it answered from back-end tools and gave instructions instead of acting in the app | Client review of the prototype | Screen-context layer + declared in-app actions + goal planner (`src/operator/`); the agent searches, sorts, taps, types and navigates in the app and verifies each step on screen |
+| D-23 | **Client review.** The assistant opened as an 86%-height sheet over a dark backdrop, hiding the app | Client review | Compact bottom-docked bar with one reply bubble; panel expands only for components and folds back after; app stays usable |
+| D-24 | **Client review.** The browser asked for the microphone on every tap in the HTML demo | Client review | Permissions API check, one `getUserMedia()` stream per session reused for recognition, revocation handling, clear denied-state guidance; claude.ai dictation on the hosted page |
+| D-25 | After a confirmed card, the panel collapsed in 250 ms, before “Confirmed” could be seen | E2E E03/E16 after the redesign | Collapse waits 1.8 s |
+| D-26 | Compact chips were capped at three, hiding wellness options (Vegetarian, Peanuts) | E2E E10 | All chips in one scrollable row |
+| D-27 | Idle assistant bar covered Ayuh's own options | E2E E12 | Idle bar hidden on Ayuh (it has its own hand-off) |
+| D-28 | “Add two of this” added one; “2 matchs”; transparent reply bubble; app toast and mobile Demo button overlapped the bar | Browser runs at 1600 px and 390 px | Quantity words before “of this”; plural fix; solid bubble; toast moves to the top and Demo button to the side while the assistant is open |
 
 ## Not tested / known limitations
 
-- Real microphone input was not exercised in headless tests (browser speech requires a real device and permission); the simulated tap-to-speak path is covered.
+- Real speech was not exercised in headless tests (recognition needs a real voice and, in Chrome, Google's speech service). The microphone permission flow is covered with a fake device: one `getUserMedia()` call across repeated mic taps, and the denied-state message (E24).
 - Safari/Firefox not tested; Web Speech recognition is Chrome/Edge only (fallback works everywhere).
 - The rule-based parser covers the demo vocabulary and common variants; unusual phrasings fall back to a clarification with options (by design). One change per turn: when a sentence has two requests (“pause tomorrow and increase my milk”), the agent handles the first and offers the second as a one-tap chip.
 - Instant (30-minute) mode is shown but agent flows use Morning orders.

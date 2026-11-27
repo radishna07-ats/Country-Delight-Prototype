@@ -5,10 +5,9 @@ import { Home, Products, ProductDetail, Cart } from "./screens/Shop";
 import { Subscriptions, SubscriptionEdit, Vacations, CDMoney, Transactions, Orders, OrderDetail, Account, Menu, Offers, History } from "./screens/Account";
 import { Wellness } from "./screens/Wellness";
 import { Ayuh } from "./screens/Ayuh";
-import { AgentSheet, Dock } from "./agent-ui/AgentSheet";
-import { VoiceOverlay } from "./agent-ui/VoiceOverlay";
+import { AgentDock } from "./agent-ui/AgentSheet";
 import { WhatsAppScreen, CallScreen } from "./agent-ui/Channels";
-import { speak } from "./agent-ui/voice";
+import { initVoice, speak } from "./agent-ui/voice";
 import { ScenarioPanel, Inspector } from "./demo/Panels";
 import { I } from "./ui/icons";
 import { cx } from "./ui/kit";
@@ -34,7 +33,7 @@ function StatusBar({ dark }: { dark?: boolean }) {
 function BottomNav() {
   const { route } = useUi(); const d = useDb();
   const item = (s: Screen | null, label: string, icon: JSX.Element, onClick?: () => void) => (
-    <button key={label} type="button" onClick={onClick ?? (() => s && navigate(s))} data-testid={`nav-${label.toLowerCase().replace(/\s/g, "")}`}
+    <button key={label} type="button" onClick={onClick ?? (() => s && navigate(s))} data-testid={`nav-${label.toLowerCase().replace(/\s/g, "")}`} data-agent-nav={s ?? "offers"} data-agent-label={`${label} tab`}
       className={cx("flex-1 flex flex-col items-center gap-0.5 pt-2 text-[10.5px] font-semibold", s && route.screen === s ? "text-cd-green" : "text-cd-muted")}>{icon}{label}</button>);
   return (
     <div className="absolute bottom-0 inset-x-0 z-30 h-[68px] bg-white border-t border-cd-line flex pb-2">
@@ -48,15 +47,16 @@ function BottomNav() {
 }
 
 function Toast() {
-  const { toast } = useUi(); if (!toast) return null;
-  return <div className="absolute bottom-[132px] left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-xl bg-cd-ink text-white text-[12.5px] font-semibold shadow-lg animate-rise max-w-[86%] text-center" data-testid="toast" role="status">{toast.text}</div>;
+  const { toast, agentOpen } = useUi(); if (!toast) return null;
+  // With the assistant docked at the bottom, app toasts move to the top so they never cover its reply.
+  return <div className={cx("absolute left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-xl bg-cd-ink text-white text-[12.5px] font-semibold shadow-lg animate-rise max-w-[86%] text-center", agentOpen ? "top-[60px]" : "bottom-[132px]")} data-testid="toast" role="status">{toast.text}</div>;
 }
 
 function Incoming() {
   const { incoming } = useUi(); if (!incoming) return null;
   const open = () => {
     ui.set((s) => ({ ...s, incoming: null }));
-    if (incoming.action === "offer") { logCall({ name: "push_opened → in-app offer conversation", kind: "workflow", status: "ok", channel: "inapp" }); ui.set((s) => ({ ...s, agentOpen: true, channel: "inapp" })); outreachOpener("OFR-PANEER-SUN", "inapp"); }
+    if (incoming.action === "offer") { logCall({ name: "push_opened → in-app offer conversation", kind: "workflow", status: "ok", channel: "inapp" }); ui.set((s) => ({ ...s, agentOpen: true, agentExpanded: false, channel: "inapp" })); outreachOpener("OFR-PANEER-SUN", "inapp"); }
     if (incoming.action === "wa-offer") { outreachOpener("OFR-PANEER-SUN", "whatsapp"); navigate("whatsapp"); }
   };
   return (
@@ -97,23 +97,21 @@ function useLoopingFriction() {
 export function Phone() {
   const s = useUi(); useLoopingFriction();
   useEffect(() => {
-    const l = (t: string, ch: string) => { if (ch === "inapp" && ui.get().speak && !ui.get().voiceOpen) speak(t); };
+    const l = (t: string, ch: string) => { if (ch === "inapp" && (ui.get().speak || ui.get().voiceOpen)) speak(t); };
     speakListeners.add(l); return () => { speakListeners.delete(l); };
   }, []);
   const Cur = SCREENS[s.route.screen] ?? Home;
   const full = FULL.includes(s.route.screen);
   return (
     <div className="phone shrink-0" data-testid="phone">
-      <div className="phone-screen">
+      <div className="phone-screen" data-agent-root>
         <div className="phone-notch" />
-        <StatusBar dark={s.route.screen === "call" || s.route.screen === "whatsapp" || s.voiceOpen} />
+        <StatusBar dark={s.route.screen === "call" || s.route.screen === "whatsapp"} />
         <div className={cx("absolute inset-0", full ? "" : "pt-11")}>
-          <div className={cx("h-full", full ? "" : "overflow-y-auto no-scrollbar bg-white")} key={s.route.screen + JSON.stringify(s.route.params ?? {})} data-testid={`screen-${s.route.screen}`}><Cur /></div>
+          <div className={cx("h-full", full ? "" : "overflow-y-auto no-scrollbar bg-white")} key={s.route.screen + JSON.stringify(s.route.params ?? {})} data-testid={`screen-${s.route.screen}`} data-agent-viewport><Cur /></div>
         </div>
         {!NO_NAV.includes(s.route.screen) && <BottomNav />}
-        <Dock />
-        <AgentSheet />
-        <VoiceOverlay />
+        <AgentDock />
         <Incoming />
         <Toast />
         <Splash />
@@ -121,6 +119,8 @@ export function Phone() {
     </div>
   );
 }
+
+initVoice();
 
 export default function App() {
   const [present, setPresent] = useState(() => new URLSearchParams(location.search).has("present") || location.hash === "#present");
@@ -145,7 +145,7 @@ export default function App() {
       </main>
       {!present && s.inspectorOpen && <aside className="hidden xl:block w-[360px] shrink-0 h-screen overflow-hidden p-4 border-l border-cd-line bg-[#F6F9F4]"><Inspector /></aside>}
       {/* mobile / narrow: floating demo button */}
-      <button type="button" onClick={() => setDrawer("scenarios")} className="min-[701px]:hidden fixed right-3 bottom-[150px] z-[90] h-10 px-3 rounded-full bg-graine-600 text-white text-[12px] font-bold shadow-lg" data-testid="demo-fab">Demo</button>
+      <button type="button" onClick={() => setDrawer("scenarios")} className={cx("min-[701px]:hidden fixed z-[90] rounded-full bg-graine-600 text-white font-bold shadow-lg", s.agentOpen ? "right-1.5 top-[42%] h-8 px-2.5 text-[11px] opacity-90" : "right-3 bottom-[150px] h-10 px-3 text-[12px]")} data-testid="demo-fab">Demo</button>
       {drawer && (
         <div className="fixed inset-0 z-[100] flex">
           <button type="button" aria-label="Close" className="flex-1 bg-black/40" onClick={() => setDrawer(null)} />

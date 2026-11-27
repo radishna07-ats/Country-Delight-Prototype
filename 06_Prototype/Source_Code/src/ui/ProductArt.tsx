@@ -54,6 +54,12 @@ export function ProductArt({ p, size = 96 }: { p: Product; size?: number }) {
         <path d="M22 50c0-12 12-18 28-18s28 6 28 18c0 3-2 5-5 5v22H27V55c-3 0-5-2-5-5z" fill={color} /><path d="M27 55h46v22H27z" fill={accent} />
         <path d="M36 44l4-4M48 44l4-4M60 44l4-4" stroke={accent} strokeWidth="2" />
       </g>)}
+      {kind === "powder" && (<g>
+        <rect x="27" y="24" width="46" height="12" rx="4" fill={accent} />
+        <path d="M29 34h42v42c0 4-3 7-7 7H36c-4 0-7-3-7-7z" fill={color} />
+        <rect x="34" y="46" width="32" height="20" rx="4" fill="#fff" opacity=".95" />
+        <text x="50" y="59" fontSize="8.5" textAnchor="middle" fontWeight="800" fill={color}>{label ?? "PROTEIN"}</text>
+      </g>)}
       {kind === "batter" && (<g>
         <path d="M28 30h44v46c0 4-3 6-6 6H34c-3 0-6-2-6-6z" fill={color} stroke="#e5e5e5" /><rect x="28" y="30" width="44" height="12" fill={accent} />
         <text x="50" y="62" fontSize="7" textAnchor="middle" fontWeight="800" fill={accent}>IDLI · DOSA</text>

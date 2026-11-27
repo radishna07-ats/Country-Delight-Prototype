@@ -77,9 +77,42 @@ export const CATALOGUE: Product[] = [
   { id: "atta", name: "Chakki Atta", short: "atta", size: "5 kg", price: 289, mrp: 340, category: "staples",
     art: { kind: "bag", color: "#F5E6C8", accent: "#B7791F" }, tags: [], allergens: ["gluten"], diet: "vegan",
     subscribable: false, frequencies: ["once"], inStockTomorrow: true, description: "Whole wheat chakki atta.", aliases: ["atta", "flour"] },
+  // Illustrative "Health & Nutrition" items added so the in-app operator demo can run a price-constrained,
+  // rating-based search ("protein powder under ₹2,000, best rated"). Not observed in Country Delight's app.
+  { id: "whey-1kg", name: "Whey Protein Powder — Unflavoured", short: "whey protein", size: "1 kg", price: 1899, mrp: 2199, category: "nutrition",
+    art: { kind: "powder", color: "#1F4D2B", accent: "#F2C230", label: "WHEY" }, tags: ["high_protein", "fitness"], allergens: ["milk"], diet: "veg",
+    subscribable: false, frequencies: ["once"], inStockTomorrow: true, description: "Unflavoured whey protein concentrate.", aliases: ["whey", "whey protein", "protein powder"] },
+  { id: "plant-protein", name: "Plant Protein Powder — Chocolate", short: "plant protein", size: "500 g", price: 1299, mrp: 1499, category: "nutrition",
+    art: { kind: "powder", color: "#6B4A2B", accent: "#9CCB4A", label: "PLANT" }, tags: ["high_protein", "fitness", "vegan"], allergens: ["soy"], diet: "vegan",
+    subscribable: false, frequencies: ["once"], inStockTomorrow: true, description: "Pea and soy protein blend.", aliases: ["plant protein", "vegan protein", "protein powder"] },
+  { id: "whey-2kg", name: "Whey Protein Powder — Chocolate", short: "chocolate whey", size: "2 kg", price: 3499, mrp: 3999, category: "nutrition",
+    art: { kind: "powder", color: "#3B2A1E", accent: "#E0A93B", label: "WHEY" }, tags: ["high_protein", "fitness"], allergens: ["milk"], diet: "veg",
+    subscribable: false, frequencies: ["once"], inStockTomorrow: true, description: "Chocolate whey protein, 2 kg tub.", aliases: ["chocolate whey", "protein powder"] },
 ];
 
+// ILLUSTRATIVE ratings (stars, number of ratings) used only by the prototype's search, sort and the agent's
+// "best-rated" choice. Country Delight's app did not show product ratings in the recording.
+const RATINGS: Record<string, [number, number]> = {
+  "cow-milk": [4.5, 12840], "buffalo-milk": [4.4, 6210], "low-fat-cow-milk": [4.3, 3120], "low-malai-milk": [4.2, 1890], "hp-cow-milk": [4.4, 2260],
+  "a2-cow-milk": [4.5, 980], "coconut-water": [4.1, 2750], "taaza-paneer": [4.6, 8930], "hp-paneer": [4.5, 1410], "low-fat-dahi": [4.4, 5120],
+  "greek-yogurt": [4.3, 1180], "probiotic-lassi": [4.2, 940], "desi-ghee": [4.6, 4380], "brown-eggs": [4.3, 3650], "wholewheat-bread": [4.2, 2890],
+  "idli-batter": [4.4, 3310], "peanut-butter": [4.3, 1270], "almonds": [4.4, 1960], "roasted-chana": [4.1, 720], isabgol: [4.2, 410],
+  banana: [4.0, 4100], papaya: [3.9, 1630], spinach: [4.1, 2240], atta: [4.3, 2050], "whey-1kg": [4.6, 2140], "plant-protein": [4.3, 860], "whey-2kg": [4.7, 3010],
+};
+for (const p of CATALOGUE) { const r = RATINGS[p.id]; if (r) { p.rating = r[0]; p.reviews = r[1]; } }
+
 export const byId = (id: string) => CATALOGUE.find((p) => p.id === id)!;
+
+/** Catalogue search used by the Products screen: every word must match the name, aliases, tags or category. */
+export function searchCatalogue(q: string): Product[] {
+  const words = q.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w && !["a", "an", "the", "some", "me", "for"].includes(w));
+  if (!words.length) return [];
+  const stem = (w: string) => w.replace(/(es|s)$/, "");
+  return CATALOGUE.filter((p) => {
+    const hay = ` ${[p.name, ...p.aliases, ...p.tags.map((t) => t.replace(/_/g, " ")), p.category].join(" ").toLowerCase().replace(/[^a-z0-9\s]/g, " ")} `;
+    return words.every((w) => hay.includes(` ${stem(w)}`) || hay.includes(` ${w}`));
+  });
+}
 
 export const HEALTH_GOALS = [
   { id: "high_protein", label: "High Protein" },

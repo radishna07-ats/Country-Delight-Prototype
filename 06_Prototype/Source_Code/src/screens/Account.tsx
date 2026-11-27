@@ -72,13 +72,13 @@ export function SubscriptionEdit() {
         </div>
         <div className="mt-5 text-[12px] text-cd-muted">Pause/Remove Subscription</div>
         <div className="mt-2 flex gap-2">
-          <Btn tone="outline" size="sm" onClick={pause}>PAUSE</Btn>
-          <Btn tone="danger" size="sm" onClick={remove} testId="remove-sub">REMOVE</Btn>
+          <Btn tone="outline" size="sm" onClick={pause} tier="T2">PAUSE</Btn>
+          <Btn tone="danger" size="sm" onClick={remove} testId="remove-sub" tier="T2">REMOVE</Btn>
           <Btn tone="outline" size="sm" onClick={() => navigate("vacations", { open: "1" })}>GOING ON VACATION</Btn>
         </div>
         {sub.offer && <div className="mt-3 text-[11.5px] rounded-lg bg-[#FFF8DA] px-3 py-2">🎁 {sub.offer.name}. Changing frequency or removing ends the offer.</div>}
       </div>
-      <div className="absolute bottom-[86px] left-0 right-0 px-4 z-10"><PriceCta price={rupees(unitPrice(p, d.customer.vip.active) * qty)} label="Confirm subscription" onClick={save} testId="edit-confirm" /></div>
+      <div className="absolute bottom-[86px] left-0 right-0 px-4 z-10"><PriceCta price={rupees(unitPrice(p, d.customer.vip.active) * qty)} label="Confirm subscription" onClick={save} testId="edit-confirm" tier="T2" /></div>
     </div>
   );
 }
@@ -107,7 +107,7 @@ export function Vacations() {
             <Card key={v.id} className="p-3" testId="vacation-card">
               <div className="grid grid-cols-2 text-[12px]"><div><div className="text-cd-muted">Start Date</div><div className="font-bold">{fmtDate(v.start)}</div></div><div><div className="text-cd-muted">End Date</div><div className="font-bold">{fmtDate(v.end)}</div></div></div>
               <div className="mt-2 rounded-lg bg-cd-mint text-cd-green text-[11.5px] px-2 py-1.5 text-center">Any upcoming delivery will resume from {fmtDate(addDays(v.end, 1))}</div>
-              <Btn tone="dark" className="w-full mt-3" onClick={async () => { await api.end_vacation("inapp", v.id); toast("Vacation ended"); }}>END VACATION</Btn>
+              <Btn tone="dark" className="w-full mt-3" onClick={async () => { await api.end_vacation("inapp", v.id); toast("Vacation ended"); }} tier="T2">END VACATION</Btn>
             </Card>))}
           <div className="font-bold text-[13px] mt-1">Subscription Paused</div>
           {d.subscriptions.filter((s) => s.status !== "removed").map((s) => <Card key={s.id} className="p-2.5 flex items-center gap-3"><ProductArt p={byId(s.productId)} size={44} /><div className="flex-1 text-[12px] font-bold">{byId(s.productId).name}<div className="text-[11px] text-cd-muted font-medium">{freqText(s)}, Qty {s.qty}</div></div><Pill tone="warn">Paused</Pill></Card>)}
@@ -145,7 +145,7 @@ function SetVacationSheet({ open, onClose }: { open: boolean; onClose: () => voi
         </div>
         <div className="grid grid-cols-2 text-[12px] mt-3"><div><div className="text-cd-muted">Start Date</div><div className="font-bold">{start ? fmtDate(start) : "—"}</div></div><div className="text-right"><div className="text-cd-muted">End Date</div><div className="font-bold">{end ? fmtDate(end) : "—"}</div></div></div>
         {chk && !chk.ok && <div className="mt-2 text-[11.5px] text-cd-danger">{chk.reason}</div>}
-        <Btn tone="dark" size="lg" className="w-full mt-3" disabled={!chk?.ok} onClick={confirm} testId="vacation-confirm">CONFIRM</Btn>
+        <Btn tone="dark" size="lg" className="w-full mt-3" disabled={!chk?.ok} onClick={confirm} testId="vacation-confirm" tier="T2">CONFIRM</Btn>
       </div>
     </Sheet>
   );
@@ -169,12 +169,12 @@ export function CDMoney() {
             <div className="mt-1.5 rounded-lg bg-[#FFF3D6] px-2 py-1 text-[11.5px]"><b>{rupees(p.cashback)} cashback</b> · {p.schedule}</div>
           </button>))}
         <div className="mt-3 grid grid-cols-3 text-center text-[10.5px] text-cd-muted"><div>Hassle free recharges</div><div>Pause/cancel anytime</div><div>24-hr prior notification</div></div>
-        <PriceCta price={rupees(d.plans.find((x) => x.id === plan)!.amount)} label="Pay" onClick={() => setPay({ amount: d.plans.find((x) => x.id === plan)!.amount, label: `Smart Recharge · ${d.plans.find((x) => x.id === plan)!.name}` })} testId="pay-plan" />
+        <PriceCta price={rupees(d.plans.find((x) => x.id === plan)!.amount)} label="Pay" tier="T4" onClick={() => setPay({ amount: d.plans.find((x) => x.id === plan)!.amount, label: `Smart Recharge · ${d.plans.find((x) => x.id === plan)!.name}` })} testId="pay-plan" />
       </Card>
       <Card className="mx-3 mt-3 p-3">
         <div className="font-extrabold text-[14px]">Recharge</div>
         <div className="mt-2 flex gap-2">{[200, 500, 1000].map((a) => <button key={a} type="button" onClick={() => setAmount(a)} className={cx("flex-1 h-10 rounded-xl border text-[13px] font-bold", amount === a ? "border-cd-leaf bg-cd-mint" : "border-cd-line")}>{rupees(a)}</button>)}</div>
-        <Btn tone="outline" className="w-full mt-2" onClick={() => setPay({ amount, label: "Wallet recharge" })}>Recharge {rupees(amount)}</Btn>
+        <Btn tone="outline" className="w-full mt-2" tier="T4" onClick={() => setPay({ amount, label: "Wallet recharge" })}>Recharge {rupees(amount)}</Btn>
       </Card>
       <Card className="mx-3 mt-3 p-3 bg-gradient-to-br from-[#3E4FD8] to-[#2E3AA8] text-white border-0">
         <div className="text-[11px] opacity-80">DISCOVER</div><div className="font-extrabold text-[16px]">UPI Autopay</div>
@@ -187,7 +187,7 @@ export function CDMoney() {
           <div className="rounded-xl bg-orange-50 text-[11.5px] text-cd-danger px-3 py-2">Prototype: no money moves. In production the customer completes payment in Country Delight's own payment screen — the assistant never pays.</div>
           <Row k="Amount" v={<b>{rupees(pay.amount)}</b>} />
           {["UPI · GPay ••21", "UPI · PhonePe", "Card ••4412"].map((m) => <div key={m} className="h-11 rounded-xl border border-cd-line flex items-center px-3 text-[13px]">{m}</div>)}
-          <Btn size="lg" testId="pay-confirm" onClick={() => { simulateRecharge(pay.amount, pay.label); toast(`${rupees(pay.amount)} added (simulated)`); setPay(null); }}>Pay {rupees(pay.amount)}</Btn>
+          <Btn size="lg" testId="pay-confirm" tier="T4" onClick={() => { simulateRecharge(pay.amount, pay.label); toast(`${rupees(pay.amount)} added (simulated)`); setPay(null); }}>Pay {rupees(pay.amount)}</Btn>
         </div>}
       </Sheet>
     </div>
@@ -291,21 +291,21 @@ export function Account() {
 export function Menu() {
   const d = useDb();
   const go = (s: Parameters<typeof navigate>[0]) => () => navigate(s);
-  const tile = (label: string, icon: React.ReactNode, on: () => void, testId?: string) => (
-    <button type="button" onClick={on} data-testid={testId} className="flex flex-col items-center gap-1.5 py-2 rounded-xl hover:bg-cd-mint"><span className="text-cd-green">{icon}</span><span className="text-[11.5px] font-semibold">{label}</span></button>);
+  const tile = (label: string, icon: React.ReactNode, on: () => void, testId?: string, nav?: string) => (
+    <button type="button" onClick={on} data-testid={testId} data-agent-nav={nav} data-agent-label={label} className="flex flex-col items-center gap-1.5 py-2 rounded-xl hover:bg-cd-mint"><span className="text-cd-green">{icon}</span><span className="text-[11.5px] font-semibold">{label}</span></button>);
   return (
     <div className="pb-36 relative min-h-full">
       <Header title="Menu" />
       <div className="px-4 pt-3 text-[12px] font-bold text-cd-muted">Products and Subscriptions</div>
-      <div className="grid grid-cols-3 px-2">{tile("Products", <I.grid />, go("products"))}{tile("My Subscriptions", <I.box />, go("subscriptions"), "menu-subscriptions")}{tile("Set Vacation", <I.plane />, go("vacations"), "menu-vacation")}</div>
+      <div className="grid grid-cols-3 px-2">{tile("Products", <I.grid />, go("products"), undefined, "products")}{tile("My Subscriptions", <I.box />, go("subscriptions"), "menu-subscriptions", "subscriptions")}{tile("Set Vacation", <I.plane />, go("vacations"), "menu-vacation", "vacations")}</div>
       <div className="px-4 pt-2 text-[12px] font-bold text-cd-muted">Orders and Billing</div>
-      <div className="grid grid-cols-3 px-2">{tile("My Orders", <I.cart />, go("orders"), "menu-orders")}{tile("Transactions", <I.receipt />, go("transactions"), "menu-transactions")}{tile("Assistant history", <I.history />, go("history"), "menu-history")}</div>
+      <div className="grid grid-cols-3 px-2">{tile("My Orders", <I.cart />, go("orders"), "menu-orders", "orders")}{tile("Transactions", <I.receipt />, go("transactions"), "menu-transactions", "transactions")}{tile("Assistant history", <I.history />, go("history"), "menu-history", "history")}</div>
       <div className="px-4 pt-2 text-[12px] font-bold text-cd-muted">Rewards</div>
-      <div className="grid grid-cols-3 px-2">{tile("Refer", <I.users />, () => toast("Referral is unchanged in this prototype", "info"))}{tile("Offer Zone", <I.tag />, go("offers"))}{tile("Wellness", <I.leaf />, go("wellness"))}</div>
+      <div className="grid grid-cols-3 px-2">{tile("Refer", <I.users />, () => toast("Referral is unchanged in this prototype", "info"))}{tile("Offer Zone", <I.tag />, go("offers"), undefined, "offers")}{tile("Wellness", <I.leaf />, go("wellness"), undefined, "wellness")}</div>
       <div className="mx-3 mt-3 rounded-xl bg-[#F3F9D9] px-3 py-2.5 flex items-center gap-2 text-[12px]"><I.crown size={18} className="text-cd-vipdeep" /><div className="flex-1"><b>VIP Membership</b><div className="text-cd-muted text-[11px]">{d.customer.vip.active ? `Active till ${fmtDate(d.customer.vip.validTill)} · benefit left ${rupees(d.customer.vip.benefitLeft)} of ${rupees(d.customer.vip.benefitTotal)}` : "Your VIP Membership is waiting!"}</div></div></div>
       <div className="mx-3 mt-3 divide-y divide-cd-line rounded-2xl border border-cd-line bg-white">
         {([["Account & Preferences", "Edit address, delivery preferences, privacy", "account"], ["CD Money & Payment Modes", "Add money, Smart Recharge, Autopay", "cdmoney"], ["Test Reports", "View latest quality check reports", null], ["Legal", "Privacy, Terms & Conditions", null]] as const).map(([t, s, to]) => (
-          <button key={t} type="button" data-testid={`menu-${to ?? t.split(" ")[0].toLowerCase()}`} onClick={() => (to ? navigate(to) : toast("Unchanged Country Delight screen (not in prototype)", "info"))} className="w-full px-3 py-3 flex items-center gap-3 text-left"><div className="flex-1"><div className="text-[13px] font-bold">{t}</div><div className="text-[11px] text-cd-muted">{s}</div></div><I.chevron size={16} /></button>))}
+          <button key={t} type="button" data-testid={`menu-${to ?? t.split(" ")[0].toLowerCase()}`} data-agent-nav={to ?? undefined} data-agent-label={t} onClick={() => (to ? navigate(to) : toast("Unchanged Country Delight screen (not in prototype)", "info"))} className="w-full px-3 py-3 flex items-center gap-3 text-left"><div className="flex-1"><div className="text-[13px] font-bold">{t}</div><div className="text-[11px] text-cd-muted">{s}</div></div><I.chevron size={16} /></button>))}
       </div>
       <div className="text-center text-[10.5px] text-cd-muted mt-4">Version 10.9.100 · prototype</div>
       <button type="button" aria-label="Ayuh help" data-testid="ayuh-fab" onClick={() => navigate("ayuh")} className="absolute right-4 bottom-[150px] w-14 h-14 rounded-full bg-cd-ink text-white grid place-items-center shadow-lg">

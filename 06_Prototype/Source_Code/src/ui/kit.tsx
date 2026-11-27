@@ -4,9 +4,9 @@ import { back } from "../backend/store";
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
-export function Btn({ children, onClick, tone = "primary", size = "md", className, disabled, testId, ariaLabel }: {
+export function Btn({ children, onClick, tone = "primary", size = "md", className, disabled, testId, ariaLabel, tier }: {
   children: ReactNode; onClick?: () => void; tone?: "primary" | "ghost" | "outline" | "danger" | "dark" | "vip"; size?: "sm" | "md" | "lg";
-  className?: string; disabled?: boolean; testId?: string; ariaLabel?: string;
+  className?: string; disabled?: boolean; testId?: string; ariaLabel?: string; tier?: "T1" | "T2" | "T3" | "T4";
 }) {
   const tones = {
     primary: "bg-cd-green text-white hover:bg-[#186A2C] shadow-sm", dark: "bg-cd-deep text-white hover:bg-[#173d22]",
@@ -15,7 +15,7 @@ export function Btn({ children, onClick, tone = "primary", size = "md", classNam
   };
   const sizes = { sm: "h-8 px-3 text-[12px] rounded-lg", md: "h-10 px-4 text-[13px] rounded-xl", lg: "h-12 px-5 text-[14px] rounded-xl" };
   return (
-    <button type="button" data-testid={testId} aria-label={ariaLabel} disabled={disabled} onClick={onClick}
+    <button type="button" data-testid={testId} aria-label={ariaLabel} disabled={disabled} onClick={onClick} data-agent-tier={tier}
       className={cx("inline-flex items-center justify-center gap-1.5 font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cd-green", tones[tone], sizes[size], className)}>
       {children}
     </button>
@@ -23,9 +23,9 @@ export function Btn({ children, onClick, tone = "primary", size = "md", classNam
 }
 
 /** Full-width green CTA with price on the left, as observed in the app (CONFIRM SUBSCRIPTION). */
-export function PriceCta({ price, strike, label, onClick, disabled, testId }: { price: string; strike?: string; label: string; onClick: () => void; disabled?: boolean; testId?: string }) {
+export function PriceCta({ price, strike, label, onClick, disabled, testId, tier }: { price: string; strike?: string; label: string; onClick: () => void; disabled?: boolean; testId?: string; tier?: "T1" | "T2" | "T3" | "T4" }) {
   return (
-    <button type="button" data-testid={testId} onClick={onClick} disabled={disabled}
+    <button type="button" data-testid={testId} onClick={onClick} disabled={disabled} data-agent-label={label} data-agent-tier={tier}
       className="w-full h-12 rounded-xl bg-cd-leaf text-white flex items-center justify-between px-4 font-bold text-[13px] tracking-wide disabled:opacity-40 hover:bg-cd-green transition-colors">
       <span>{price}{strike && <span className="ml-1.5 text-[11px] line-through opacity-70">{strike}</span>}</span>
       <span className="uppercase">{label}</span>
@@ -35,7 +35,7 @@ export function PriceCta({ price, strike, label, onClick, disabled, testId }: { 
 
 export function Stepper({ value, onChange, min = 0, max = 20, testId }: { value: number; onChange: (n: number) => void; min?: number; max?: number; testId?: string }) {
   return (
-    <div className="inline-flex items-center h-9 rounded-lg border border-cd-leaf bg-white" data-testid={testId}>
+    <div className="inline-flex items-center h-9 rounded-lg border border-cd-leaf bg-white" data-testid={testId} data-agent-stepper data-agent-value={value}>
       <button type="button" aria-label="Decrease" className="w-9 h-full grid place-items-center text-cd-green disabled:opacity-30" disabled={value <= min} onClick={() => onChange(value - 1)}><I.minus size={16} /></button>
       <span className="w-7 text-center font-bold text-[14px] tabular-nums" aria-live="polite">{value}</span>
       <button type="button" aria-label="Increase" className="w-9 h-full grid place-items-center text-cd-green disabled:opacity-30" disabled={value >= max} onClick={() => onChange(value + 1)}><I.plus size={16} /></button>
@@ -55,9 +55,9 @@ export function Toggle({ on, onChange, label, testId }: { on: boolean; onChange:
 export function Header({ title, subtitle, right, onBack }: { title: string; subtitle?: string; right?: ReactNode; onBack?: () => void }) {
   return (
     <div className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-cd-line px-3 h-14 flex items-center gap-2">
-      <button type="button" aria-label="Back" onClick={onBack ?? back} className="w-9 h-9 grid place-items-center rounded-full hover:bg-cd-mint text-cd-ink"><I.back size={20} /></button>
+      <button type="button" aria-label="Back" data-agent-action="back" onClick={onBack ?? back} className="w-9 h-9 grid place-items-center rounded-full hover:bg-cd-mint text-cd-ink"><I.back size={20} /></button>
       <div className="flex-1 min-w-0">
-        <div className="font-extrabold text-[16px] text-cd-ink truncate">{title}</div>
+        <div className="font-extrabold text-[16px] text-cd-ink truncate" data-agent-title>{title}</div>
         {subtitle && <div className="text-[11px] text-cd-muted truncate">{subtitle}</div>}
       </div>
       {right}
@@ -79,8 +79,8 @@ export function Sheet({ open, onClose, children, title, testId }: { open: boolea
   );
 }
 
-export function Card({ children, className, testId }: { children: ReactNode; className?: string; testId?: string }) {
-  return <div data-testid={testId} className={cx("bg-white rounded-2xl shadow-card border border-cd-line/60", className)}>{children}</div>;
+export function Card({ children, className, testId, agent }: { children: ReactNode; className?: string; testId?: string; agent?: Record<string, string | number> }) {
+  return <div data-testid={testId} {...agent} className={cx("bg-white rounded-2xl shadow-card border border-cd-line/60", className)}>{children}</div>;
 }
 
 export function Pill({ children, tone = "mint", className }: { children: ReactNode; tone?: "mint" | "vip" | "sky" | "gray" | "warn" | "graine"; className?: string }) {

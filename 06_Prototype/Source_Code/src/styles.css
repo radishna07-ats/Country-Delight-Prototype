@@ -28,4 +28,22 @@ body { margin: 0; background: #E9EFE6; font-family: 'Plus Jakarta Sans', system-
 .orb-graine { background: radial-gradient(circle at 35% 30%, #c9c7ff, #5552E0 50%, #2b2a8a 85%); }
 .wa-bg { background-color: #EFE7DE; background-image: radial-gradient(rgba(0,0,0,.035) 1px, transparent 1px); background-size: 14px 14px; }
 
+/* In-app assistant: the panel grows out of the docked bar and folds back into it */
+.dock-panel { transition: max-height .34s cubic-bezier(.2,.8,.2,1), opacity .22s ease, transform .34s cubic-bezier(.2,.8,.2,1), border-color .2s; transform-origin: bottom center; }
+.dock-panel.is-open { max-height: 100%; opacity: 1; transform: translateY(0) scale(1); }
+.dock-panel.is-closed { max-height: 0; opacity: 0; transform: translateY(14px) scale(.98); border-color: transparent; box-shadow: none; pointer-events: none; }
+.dock-compact { animation: rise .22s ease-out; }
+.orb-busy { animation: orbBusy 1.6s ease-in-out infinite; }
+@keyframes orbBusy { 0%,100% { box-shadow: 0 0 0 0 rgba(47,168,79,.45); } 50% { box-shadow: 0 0 0 6px rgba(47,168,79,0); } }
+@keyframes rise { 0% { transform: translateY(12px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+
+/* What the agent is touching in the app (Graine "Highlight") */
+.agent-pointer { position: absolute; z-index: 47; border-radius: 14px; border: 2px solid #2FA84F; background: rgba(47,168,79,.08);
+  box-shadow: 0 0 0 4px rgba(47,168,79,.18); pointer-events: none; opacity: 0; transition: left .38s cubic-bezier(.2,.8,.2,1), top .38s cubic-bezier(.2,.8,.2,1), width .38s, height .38s, opacity .2s; }
+.agent-pointer.on { opacity: 1; }
+.agent-pointer::after { content: ""; position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 999px; background: #2FA84F; opacity: .85; }
+.agent-pointer.on[data-mode="tap"]::after { animation: tapPulse .7s ease-out infinite; }
+.agent-pointer[data-mode="focus"]::after { display: none; }
+@keyframes tapPulse { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(2.2); opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

@@ -10,7 +10,9 @@ import type { Channel, Frequency, Subscription, Txn } from "../data/types";
 import {
   addDays, checkVacation, daysBetween, deliversOn, earliestChangeDate, fmtDate, fmtTs, freqText, hour, inVacation, rupees, RULE_TEXT, today, unitPrice, DAY_NAMES,
 } from "../backend/rules";
-import { ALLERGENS, HEALTH_GOALS } from "../data/catalogue";
+import { ALLERGENS, HEALTH_GOALS, searchCatalogue } from "../data/catalogue";
+import { hasDom, observe, describe as describeScreen, SCREEN_NAMES, type ScreenContext } from "../operator/screen";
+import * as op from "../operator/operator";
 
 // ------------------------------------------------------------------ session memory (not persisted)
 type Pending =
@@ -72,8 +74,14 @@ const HELP_CHIPS = (): Chip[] => [
 export async function userSays(text: string, ch: Channel = ui.get().channel) {
   const clean = text.trim(); if (!clean) return;
   push(ch, { role: "user", text: clean });
-  const p = parse(clean, db.get().clock);
+  let p = parse(clean, db.get().clock);
   lang = p.hinglish ? "hi" : "en";
+  if (ch === "inapp") {
+    // Context-aware: read what the customer is looking at before deciding anything.
+    const ctx = observe();
+    logCall({ name: `screen_context: ${ctx.summary}`, kind: "screen", status: "info", channel: ch, args: { screen: ctx.screen, title: ctx.title, inputs: ctx.inputs.map((i) => ({ field: i.label, value: i.value })), products: ctx.products.slice(0, 8).map((x) => ({ id: x.productId, price: x.price, rating: x.rating, inCart: x.inCart, inView: x.inView })), buttons: ctx.elements.filter((e) => e.inView && e.role !== "input").length } });
+    p = withContext(p, ctx);
+  }
   logCall({ name: `intent: ${p.intent}`, kind: "nlu", status: "info", channel: ch, args: compactEntities(p) });
   thinking(true);
   try {
@@ -147,9 +155,15 @@ async function route(p: Parsed, ch: Channel, subIdHint?: string) {
     return say(ch, `${p.qtyLimit} is an unusually large quantity, so I won't set it automatically. If you need a bulk order, a person can help — or tell me a smaller number.`, undefined,
       [sayChip("Talk to a person", "I want to talk to a person")]);
   }
+  if (ch === "inapp" && hasDom() && (await operate(p, ch))) return;
   switch (p.intent) {
     case "greet": return greet(ch);
     case "cart_view": return cartView(ch);
+    case "ui_find": return findFallback(p, ch);
+    case "cart_remove": case "cart_qty": return say(ch, "You can change it in your cart.", undefined, [chip("Open cart", { kind: "navigate", screen: "cart" })]);
+    case "open_product": return say(ch, `You'll find ${p.products[0]?.name ?? "it"} under Products in the app.`, undefined, [chip("Open Products", { kind: "navigate", screen: "products" })]);
+    case "screen_query": case "ui_tap": case "ui_fill": case "ui_scroll": case "ui_back":
+      return say(ch, "I can only see and use the screen inside the Country Delight app.");
     case "thanks": return say(ch, L("You're welcome! Anything else?", "Koi baat nahi! Aur kuch?"));
     case "yes": case "no": return yesNo(p.intent === "yes", ch);
     case "human": return handoff(ch, "Customer asked for a person");
@@ -192,7 +206,7 @@ async function continueAwaiting(p: Parsed, ch: Channel): Promise<boolean> {
     const prod = p.products.find((x) => MILK_VARIANT_IDS.includes(x.id)) ?? (/usual|regular|same|cow/i.test(p.text) ? byId("cow-milk") : undefined);
     if (prod) {
       awaiting = null;
-      if (a.intent === "pick_milk_cart") { showProductForCart(prod.id, p.qty ?? a.qty, ch); return true; }
+      if (a.intent === "pick_milk_cart") { if (ch === "inapp" && hasDom()) await doAddToCart(prod.id, p.qty ?? a.qty, ch); else showProductForCart(prod.id, p.qty ?? a.qty, ch); return true; }
       await proposeNewSub(prod.id, p.qty ?? a.qty, a.frequency ?? "daily", a.weekday, ch); return true;
     }
   }
@@ -241,6 +255,11 @@ function pickSubChips(subs: Subscription[], intent: string): Chip[] {
   return subs.map((s) => chip(`${byId(s.productId).name} · ${s.qty} × ${freqText(s).toLowerCase()}`, { kind: "pick_sub", subId: s.id, intent }));
 }
 async function goTo(screen: Screen, ch: Channel, params?: Record<string, string>) {
+  if (ch === "inapp" && hasDom()) {
+    const r = await op.openScreen(screen, params);
+    const via = r.path.filter((x) => x !== "direct");
+    return say(ch, `Opened ${SCREEN_NAMES[screen] ?? screen}${via.length ? ` (${via.join(" › ")})` : ""}.`);
+  }
   await api.navigate(ch, screen);
   if (ch === "inapp") navigate(screen, params);
   const names: Record<string, string> = { subscriptions: "My Subscriptions", vacations: "Vacations", cdmoney: "CD Money", transactions: "Transactions", orders: "My Orders", account: "Account & Preferences", cart: "your cart", offers: "Offer Zone", wellness: "Your Wellness Journey", menu: "the menu", home: "Home", products: "Products" };
@@ -270,6 +289,7 @@ function showProductForCart(productId: string, qty: number, ch: Channel) {
 }
 async function doAddToCart(productId: string, qty: number, ch: Channel) {
   awaiting = null;
+  if (ch === "inapp" && hasDom()) return report(await op.addProduct(productId, qty), ch);
   const r = await api.add_to_cart(ch, { productId, qty });
   if (r.status !== "ok") return say(ch, r.status === "refused" ? `I couldn't add that: ${r.message}` : "That didn't go through, so nothing was added. Want me to try again?", undefined,
     [chip("Try again", { kind: "add", productId, qty }), sayChip("Talk to a person", "I want to talk to a person")]);
@@ -891,6 +911,126 @@ function toolDown(ch: Channel) {
   logCall({ name: "fallback: tool_error", kind: "guardrail", status: "info", channel: ch });
   return say(ch, L("I couldn't reach Country Delight's system just now, so I won't guess. Nothing has been changed. Want me to try again, or connect you to a person?",
     "Abhi system se connect nahi ho paya, isliye andaaza nahi lagaungi. Kuch change nahi hua."), undefined, [sayChip("Try again", ui.get()[threadKey(ch)].filter((m) => m.role === "user").slice(-1)[0]?.text ?? "hi"), sayChip("Talk to a person", "I want to talk to a person")]);
+}
+
+// ------------------------------------------------------------------ in-app operator (screen-aware)
+const NEEDS_PRODUCT = ["change_subscription", "add_subscription", "pause_subscription", "remove_subscription", "add_to_cart", "cart_qty", "cart_remove"];
+
+/** Resolve "this", "the first one", "the cheapest one" and screen defaults against what is on screen. */
+function withContext(p: Parsed, ctx: ScreenContext): Parsed {
+  let q = { ...p };
+  const inCart = (id: string) => db.get().cart.some((c) => c.productId === id);
+  if (!q.products.length && !q.genericMilk && NEEDS_PRODUCT.includes(q.intent)) {
+    const visible = ctx.products.filter((x) => x.inView).length ? ctx.products.filter((x) => x.inView) : ctx.products;
+    let id: string | undefined;
+    if (q.ordinal && visible.length) {
+      const o = q.ordinal;
+      const sel = typeof o === "number" ? visible[o - 1] : o === "last" ? visible[visible.length - 1]
+        : o === "cheapest" ? [...visible].sort((a, b) => a.price - b.price)[0] : [...visible].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))[0];
+      id = sel?.productId;
+    } else if (ctx.contextProductId) id = ctx.contextProductId;
+    else if (ctx.screen === "subscription_edit" && ctx.params.id) id = subById(ctx.params.id)?.productId;
+    else if (q.deictic && visible.length === 1) id = visible[0].productId;
+    if (id) {
+      q.products = [byId(id)];
+      logCall({ name: `resolved “${q.ordinal ?? (q.deictic ? "this" : "it")}” → ${byId(id).name} (from screen)`, kind: "screen", status: "ok", channel: "inapp" });
+    }
+  }
+  if (ctx.screen === "cart" && q.products.some((x) => inCart(x.id))) {
+    if (q.intent === "remove_subscription") q.intent = "cart_remove";
+    if (q.intent === "change_subscription") q.intent = "cart_qty";
+  }
+  if ((q.intent === "cart_remove" || q.intent === "cart_qty") && q.products.length > 1) {
+    const inC = q.products.filter((x) => inCart(x.id)); if (inC.length) q.products = inC;
+  }
+  return q;
+}
+
+function report(r: op.OpReport, ch: Channel) {
+  const chips = (r.chips ?? []).map((c) => (c.screen ? chip(c.label, { kind: "navigate", screen: c.screen }) : sayChip(c.label, c.say ?? c.label)));
+  return say(ch, r.text, undefined, chips);
+}
+
+/** Requests the agent fulfils by operating the app's own UI. Returns false to fall through to the API tools. */
+async function operate(p: Parsed, ch: Channel): Promise<boolean> {
+  const ctx = observe();
+  switch (p.intent) {
+    case "ui_find": {
+      const f = p.find!;
+      report(await op.findProducts({ query: f.query, maxPrice: f.maxPrice, minPrice: f.minPrice, pick: f.pick, add: f.add, qty: p.qty ?? 1 }), ch);
+      return true;
+    }
+    case "add_to_cart": {
+      const qty = p.qty ?? 1;
+      const specific = p.products.filter((x) => !(p.genericMilk && x.id === "cow-milk" && p.products.length === 1 && !/cow/i.test(p.text)));
+      if (p.genericMilk && !specific.some((x) => MILK_VARIANT_IDS.includes(x.id))) {
+        // Ambiguous: put the options on screen, then ask — usual first.
+        await op.run(async () => { await op.searchFor("milk"); return { ok: true, text: "" }; });
+        awaiting = { intent: "pick_milk_cart", qty };
+        const usual = activeSubs().find((s) => MILK_VARIANT_IDS.includes(s.productId))?.productId ?? "cow-milk";
+        const ids = [usual, ...MILK_VARIANT_IDS.filter((i) => i !== usual)].slice(0, 3);
+        say(ch, `I've opened the milk options. Which one should I add ${qty} of: your usual ${byId(usual).name}, or another?`, undefined,
+          ids.map((id) => chip(byId(id).name, { kind: "add", productId: id, qty })));
+        return true;
+      }
+      if (specific.length === 1) { report(await op.addProduct(specific[0].id, qty), ch); return true; }
+      if (specific.length > 1) {
+        const common = p.text.toLowerCase().match(/protein powder|whey|milk|paneer|dahi|eggs?|bread/)?.[0] ?? specific[0].short;
+        await op.run(async () => { await op.searchFor(common); return { ok: true, text: "" }; });
+        say(ch, `I found ${specific.length} options for “${common}” and put them on screen. Which one should I add?`, undefined, specific.slice(0, 3).map((x) => chip(x.name, { kind: "add", productId: x.id, qty })));
+        return true;
+      }
+      say(ch, ctx.products.length ? `Which one? I can see ${ctx.products.slice(0, 3).map((x) => x.name).join(", ")}${ctx.products.length > 3 ? " and more" : ""}.` : "Which product should I add?");
+      return true;
+    }
+    case "cart_remove": report(await op.cartChange(p.products[0]?.id, "remove"), ch); return true;
+    case "cart_qty": {
+      const delta = /\b(increase|one more|another)\b/i.test(p.text) && !/\bto\s+\d/.test(p.text) ? (p.qty && p.qty !== 1 ? p.qty : 1) : /\b(decrease|reduce|one less)\b/i.test(p.text) && !/\bto\s+\d/.test(p.text) ? -(p.qty ?? 1) : undefined;
+      if (delta == null && p.qty == null) { say(ch, "To how many?"); return true; }
+      report(await op.cartChange(p.products[0]?.id, delta != null ? 0 : p.qty!, delta), ch); return true;
+    }
+    case "cart_view": {
+      const r = await op.openScreen("cart");
+      const c = observe();
+      if (!r.ok) return false;
+      say(ch, c.products.length ? `Here's your cart: ${c.products.map((l) => `${l.inCart} × ${l.name}`).join(", ")}, ${rupees(c.products.reduce((s, l) => s + l.price * l.inCart, 0))}. Checkout stays with you.` : "Your cart is empty. Tell me what you'd like, for example “find paneer”.");
+      return true;
+    }
+    case "screen_query": say(ch, describeScreen(ctx)); return true;
+    case "open_product": report(await op.openProduct(p.products[0].id), ch); return true;
+    case "ui_tap": report(await op.tapByName(p.tapTarget ?? ""), ch); return true;
+    case "ui_fill": report(await op.fillByName(p.fillField, p.fillText ?? ""), ch); return true;
+    case "ui_scroll": report(await op.scrollScreen(p.scrollDir ?? "down"), ch); return true;
+    case "ui_back": report(await op.back(), ch); return true;
+    case "navigate": await goTo((p.screen ?? "home") as Screen, ch); return true;
+    case "change_subscription": {
+      // On a product page with no subscription for it, "make it 3" means the quantity on screen.
+      const pid = ctx.contextProductId;
+      if (ctx.screen === "product" && pid && p.qty && !activeSubs().some((s) => s.productId === pid)) {
+        const r = await op.setQuantity(p.qty);
+        say(ch, r.ok ? `Set the quantity to ${p.qty} on this screen. Say “add it to my cart” or “subscribe daily” when you're ready.` : r.text);
+        return true;
+      }
+      return false;
+    }
+    case "unknown": {
+      const m = p.text.match(/^\s*(?:please\s+)?(?:open|show|go to)\s+(?:the\s+|my\s+)?(.+?)\s*[.!]?$/i);
+      if (m && ctx.elements.some((e) => e.label.toLowerCase().includes(m[1].toLowerCase()))) { report(await op.tapByName(m[1]), ch); return true; }
+      return false;
+    }
+  }
+  return false;
+}
+
+/** Without a screen (WhatsApp, voice, tests): answer a search from the catalogue instead of operating the app. */
+function findFallback(p: Parsed, ch: Channel) {
+  const f = p.find!; const vip = isVip();
+  let list = searchCatalogue(f.query).filter((x) => x.inStockTomorrow && (f.maxPrice == null || unitPrice(x, vip) <= f.maxPrice) && (f.minPrice == null || unitPrice(x, vip) >= f.minPrice));
+  if (f.pick === "cheapest") list = list.sort((a, b) => unitPrice(a, vip) - unitPrice(b, vip));
+  if (f.pick === "best_rated" || f.pick === "most_reviewed") list = list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  if (!list.length) return say(ch, `I couldn't find “${f.query}”${f.maxPrice ? ` under ${rupees(f.maxPrice)}` : ""} in the catalogue.`);
+  return say(ch, `${list.length} match${list.length > 1 ? "es" : ""} for “${f.query}”. ${f.pick ? `Top pick: ${list[0].name}, ${rupees(unitPrice(list[0], vip))}${list[0].rating ? `, ★${list[0].rating}` : ""}.` : ""}`,
+    [{ type: "products", mode: "add", items: list.slice(0, 4).map((x) => ({ productId: x.id, qty: p.qty ?? 1 })), date: earliestChangeDate(db.get().clock) }]);
 }
 
 // Hidden "still remove" chip handler
