@@ -68,7 +68,7 @@ export function ScenarioPanel({ compact }: { compact?: boolean }) {
           </select></label>
         <Toggle label="Fail next tool call (fault injection)" on={s.faults.failNext} testId="ctl-fail" onChange={(v) => ui.set((x) => ({ ...x, faults: { ...x.faults, failNext: v } }))} />
         <Toggle label="Slow network (2.2 s per call)" on={s.faults.slow} onChange={(v) => ui.set((x) => ({ ...x, faults: { ...x.faults, slow: v } }))} />
-        <Toggle label="Speak replies in chat" on={s.speak} onChange={(v) => ui.set((x) => ({ ...x, speak: v }))} />
+        <Toggle label="Speak captions aloud" on={s.speak} onChange={(v) => ui.set((x) => ({ ...x, speak: v }))} />
         <div className="text-[11px] text-cd-muted">Wallet {rupees(d.wallet.balance)} · {d.subscriptions.filter((x) => x.status !== "removed").length} subscriptions · {d.vacations.filter((v) => v.status !== "ended").length} vacations · {d.tickets.length} cases</div>
       </div>
     </div>

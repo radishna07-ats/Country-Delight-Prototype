@@ -84,7 +84,7 @@ export interface UiState {
   agentExpanded: boolean;        // expanded panel: only for components, results or the full conversation
   agentPinned: boolean;          // the customer expanded it themselves (don't auto-collapse)
   voiceOpen: boolean;            // voice mode requested (listening happens inside the bar)
-  operator: { step: string; running: boolean } | null; // what the agent is doing in the app right now
+  operator: { step: string; running: boolean; id?: string } | null; // what the agent is doing in the app right now
   channel: Channel;              // which channel the active conversation is on
   messages: Msg[];               // active conversation (persisted)
   waMessages: Msg[];             // WhatsApp simulator thread
@@ -93,7 +93,7 @@ export interface UiState {
   toast: { text: string; tone: "ok" | "warn" | "info" } | null;
   inspectorOpen: boolean;
   faults: { failNext: boolean; slow: boolean };
-  speak: boolean;                // speak agent replies (speech synthesis)
+  speak: boolean;                // speak everything shown in the assistant's captions (on by default; the speaker button mutes)
   nudge: { screen: string; text: string; event: AgentEvent } | null;
   nudgesShown: number;
   lastNudgeAt: number;
@@ -101,12 +101,12 @@ export interface UiState {
   splash: boolean;
 }
 
-const UI_VERSION = 4;
+const UI_VERSION = 5;
 const initUi = (): UiState => ({
   version: UI_VERSION,
   route: { screen: "home" }, history: [], agentOpen: false, agentExpanded: false, agentPinned: false, voiceOpen: false, operator: null, channel: "inapp",
   messages: [], waMessages: [], callMessages: [], thinking: false, toast: null, inspectorOpen: true,
-  faults: { failNext: false, slow: false }, speak: false, nudge: null, nudgesShown: 0, lastNudgeAt: 0, incoming: null, splash: true,
+  faults: { failNext: false, slow: false }, speak: true, nudge: null, nudgesShown: 0, lastNudgeAt: 0, incoming: null, splash: true,
 });
 
 export const ui = createStore<UiState>("cd-graine-ui", initUi, UI_VERSION);

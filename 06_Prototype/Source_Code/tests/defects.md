@@ -30,10 +30,16 @@
 | D-26 | Compact chips were capped at three, hiding wellness options (Vegetarian, Peanuts) | E2E E10 | All chips in one scrollable row |
 | D-27 | Idle assistant bar covered Ayuh's own options | E2E E12 | Idle bar hidden on Ayuh (it has its own hand-off) |
 | D-28 | “Add two of this” added one; “2 matchs”; transparent reply bubble; app toast and mobile Demo button overlapped the bar | Browser runs at 1600 px and 390 px | Quantity words before “of this”; plural fix; solid bubble; toast moves to the top and Demo button to the side while the assistant is open |
+| D-29 | **Client review.** Captions were shown but not spoken (speech off by default; each new message cancelled the one being spoken; operator steps and notices were never spoken) | Client review | One speech queue fed by every caption, sentence by sentence, never cancelled by the next; the operator waits for each spoken step; speaker button to mute |
+| D-30 | **Client review.** The mic had to be tapped for every reply | Client review | Hands-free loop: listen → end of speech → process → speak → listen; silence and “that's all” end it; mute, interrupt and End always available |
+| D-31 | Star ratings were dropped from speech (the symbol filter removed ★ before it was read as “stars”) | Unit test (captions == speech) | ★ converted first; filter range narrowed |
+| D-32 | Steady background noise (a fan, Chromium's fake mic tone) was taken for the customer talking and cut the assistant off | E2E E27/E28 | Barge-in compares against the noise floor measured while listening and ignores the first 0.7 s of each sentence |
+| D-33 | Reply chips were hidden while the assistant spoke, so a tap could land on the screen behind instead | E2E E10 | Chips stay visible while speaking |
+| D-34 | Long step captions and bar labels were cut off with “…”, so not everything spoken was shown | Visual review | Step captions wrap; state labels shortened, with a hint line |
 
 ## Not tested / known limitations
 
-- Real speech was not exercised in headless tests (recognition needs a real voice and, in Chrome, Google's speech service). The microphone permission flow is covered with a fake device: one `getUserMedia()` call across repeated mic taps, and the denied-state message (E24).
+- Real speech was not exercised in headless tests (headless Chromium has no voices or recognition). The spoken-caption and hands-free tests (E25–E28) inject deterministic stand-ins for speech synthesis and recognition; everything else is the real app. The microphone permission flow is covered with a fake device: one `getUserMedia()` call across repeated mic taps, and the denied-state message (E24).
 - Safari/Firefox not tested; Web Speech recognition is Chrome/Edge only (fallback works everywhere).
 - The rule-based parser covers the demo vocabulary and common variants; unusual phrasings fall back to a clarification with options (by design). One change per turn: when a sentence has two requests (“pause tomorrow and increase my milk”), the agent handles the first and offers the second as a one-tap chip.
 - Instant (30-minute) mode is shown but agent flows use Morning orders.

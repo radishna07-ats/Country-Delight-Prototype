@@ -20,6 +20,7 @@ const subs = new Set<() => void>();
 const set = (p: Partial<VoiceState>) => { state = { ...state, ...p }; subs.forEach((f) => f()); };
 export const useVoice = () => useSyncExternalStore((f) => { subs.add(f); return () => subs.delete(f); }, () => state);
 export const voiceState = () => state;
+export const subscribeVoice = (f: () => void) => { subs.add(f); return () => { subs.delete(f); }; };
 
 const SR = () => (typeof window === "undefined" ? undefined : (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 export const recognitionSupported = () => !!dictation || !!SR();
@@ -37,7 +38,10 @@ export const MSG = {
 
 // ------------------------------------------------------------------ hosted: claude.ai dictation capability
 let dictation: any = null;
-let acc = ""; let submitTimer: ReturnType<typeof setTimeout> | null = null; let dictHandlers: Handlers | null = null;
+export interface DictationSink { onPartial: (t: string) => void; onFinal: (t: string) => void; onEnd: (reason?: string) => void }
+let sink: DictationSink | null = null;
+export const hasDictation = () => !!dictation;
+export const dictationActive = () => !!dictation?.active?.();
 
 /** Call once at start-up. Resolves the platform dictation capability when the page runs on claude.ai. */
 export function initVoice() {
@@ -46,25 +50,39 @@ export function initVoice() {
     Promise.resolve(c.use("dictation")).then((d: any) => {
       if (!d) return;
       dictation = d; set({ source: "dictation", mic: "unknown" });
-      d.onPartial(({ text }: { text: string }) => { if (text) { clearSubmit(); } dictHandlers?.onInterim((acc + (text ? ` ${text}` : "")).trim()); set({ interim: (acc + (text ? ` ${text}` : "")).trim() }); });
-      d.onFinal(({ text }: { text: string }) => { acc = (acc + text).replace(/^\s+/, ""); set({ interim: acc }); dictHandlers?.onInterim(acc); clearSubmit(); submitTimer = setTimeout(() => { void d.stop(); }, 1100); });
+      d.onPartial(({ text }: { text: string }) => sink?.onPartial(text));
+      d.onFinal(({ text }: { text: string }) => sink?.onFinal(text));
       d.onState(({ state: st, reason }: { state: string; reason?: string }) => {
         set({ listening: st === "listening" || st === "finishing", starting: st === "starting" });
         if (st !== "idle") return;
-        clearSubmit();
-        const h = dictHandlers; dictHandlers = null; const text = acc.trim(); acc = "";
-        if (reason === "not_granted") { set({ mic: "denied", error: MSG.dictationOff }); h?.onError("not-allowed"); }
-        else if (reason === "unavailable") { dictation = null; set({ source: SR() ? "browser" : "none", error: MSG.unsupported }); h?.onError("unsupported"); }
-        else if (reason === "upstream_error" || reason === "rate_limited") { set({ error: "Voice input had a problem. Try again in a moment, or type." }); h?.onError(reason); }
-        else if (text) { set({ mic: "granted", interim: "" }); h?.onFinal(text); }
-        h?.onEnd();
+        if (reason === "not_granted") set({ mic: "denied", error: MSG.dictationOff });
+        else if (reason === "unavailable") { dictation = null; set({ source: SR() ? "browser" : "none", error: MSG.unsupported }); }
+        else if (reason === "upstream_error" || reason === "rate_limited") set({ error: "Voice input had a problem. Try again in a moment, or type." });
+        else if (reason !== "dismissed") set({ mic: "granted" });
+        const h = sink; sink = null; h?.onEnd(reason);
       });
     }).catch(() => { /* not hosted: browser path */ });
   }
   if (SR()) set({ source: "browser" });
   void queryMic();
+  if (typeof speechSynthesis !== "undefined") { try { speechSynthesis.addEventListener?.("voiceschanged", () => { voiceCache = undefined; }); } catch { /* ignore */ } }
 }
-const clearSubmit = () => { if (submitTimer) { clearTimeout(submitTimer); submitTimer = null; } };
+
+/** Start a dictation session. MUST be called synchronously from a click or key press. It keeps listening
+ *  until stopDictation(); the caller decides where one utterance ends. */
+export function startDictation(h: DictationSink): void {
+  sink = h; set({ starting: true, error: null });
+  logCall({ name: "voice: listening (claude.ai dictation; permission asked once per artifact)", kind: "app_action", status: "info", channel: "inapp" });
+  dictation.start().catch((err: any) => {
+    const code = err?.code;
+    set({ starting: false, listening: false });
+    if (code === "not_granted") set({ mic: "denied", error: MSG.dictationOff });
+    else if (code === "unavailable") { dictation = null; set({ source: SR() ? "browser" : "none" }); }
+    else if (code === "dismissed") set({ error: "Voice needs your permission. Tap the mic again when you're ready." });
+    if (code !== "stopped") { const x = sink; sink = null; x?.onEnd(code ?? "error"); }
+  });
+}
+export function stopDictation() { if (dictation?.active?.()) void dictation.stop(); }
 
 // ------------------------------------------------------------------ browser: one persistent microphone stream
 let stream: MediaStream | null = null;
@@ -125,26 +143,29 @@ export function releaseMic() {
 export interface Handlers { onInterim: (t: string) => void; onFinal: (t: string) => void; onError: (code: string) => void; onEnd: () => void }
 let rec: any = null;
 
-/** Start listening. MUST be called directly from a click/keypress (hosted dictation requires the gesture). */
+/** One utterance. MUST be called directly from a click/keypress (hosted dictation requires the gesture). */
 export function listen(h: Handlers): void {
   set({ error: null, interim: "" });
   if (dictation) {
-    acc = ""; dictHandlers = h; set({ starting: true });
-    logCall({ name: "voice: listening (claude.ai dictation; permission asked once per artifact)", kind: "app_action", status: "info", channel: "inapp" });
-    dictation.start().catch((err: any) => {
-      const code = err?.code;
-      set({ starting: false, listening: false });
-      if (code === "not_granted") { set({ mic: "denied", error: MSG.dictationOff }); }
-      else if (code === "unavailable") { dictation = null; set({ source: SR() ? "browser" : "none" }); }
-      else if (code === "dismissed") set({ error: "Voice needs your permission. Tap the mic again when you're ready." });
-      if (code !== "stopped") { h.onError(code ?? "error"); dictHandlers = null; h.onEnd(); }
+    let acc = ""; let timer: ReturnType<typeof setTimeout> | null = null; let done = false;
+    startDictation({
+      onPartial: (t) => { if (t && timer) { clearTimeout(timer); timer = null; } const x = (acc + (t ? ` ${t}` : "")).trim(); set({ interim: x }); h.onInterim(x); },
+      onFinal: (t) => { acc = (acc + t).replace(/^\s+/, ""); set({ interim: acc }); h.onInterim(acc); if (timer) clearTimeout(timer); timer = setTimeout(() => stopDictation(), 1100); },
+      onEnd: (reason) => { if (done) return; done = true; const text = acc.trim(); set({ interim: "" }); if (text) h.onFinal(text); else if (reason && !["stopped", "viewer_stopped", "hidden"].includes(reason)) h.onError(reason); h.onEnd(); },
     });
     return;
   }
   void listenBrowser(h);
 }
 
-async function listenBrowser(h: Handlers) {
+export const micStream = () => (live() ? stream : null);
+/** Keep the microphone track live (hands-free conversation: voice-activity detection between turns) or idle. */
+export function setMicLive(on: boolean) { stream?.getAudioTracks().forEach((t) => { t.enabled = on; }); }
+export async function prepareMic() { return ensureMic(); }
+
+/** One browser speech-recognition turn on the persistent stream. `keepTrack` leaves the track live afterwards;
+ *  `quiet` leaves silence handling to the caller (no "I didn't hear anything" message). */
+export async function listenBrowser(h: Handlers, opts: { keepTrack?: boolean; quiet?: boolean } = {}) {
   const C = SR();
   if (!C) { set({ error: MSG.unsupported }); h.onError("unsupported"); h.onEnd(); return; }
   set({ starting: true });
@@ -165,10 +186,11 @@ async function listenBrowser(h: Handlers) {
     if (err === "aborted") return;
     const msg = err === "not-allowed" || err === "service-not-allowed" ? MSG.denied : err === "no-speech" ? MSG.nospeech : err === "network" ? MSG.network : err === "audio-capture" ? MSG.nodevice : "Voice input stopped unexpectedly. Try again, or type.";
     if (err === "not-allowed") { set({ mic: "denied" }); releaseMic(); }
-    set({ error: msg }); h.onError(err);
+    if (!(opts.quiet && err === "no-speech")) set({ error: msg });
+    h.onError(err);
   };
   r.onend = () => {
-    track.enabled = false; rec = null;
+    track.enabled = !!opts.keepTrack && live(); rec = null;
     set({ listening: false, starting: false, interim: "" });
     if (finalText.trim()) h.onFinal(finalText.trim());
     h.onEnd();
@@ -184,6 +206,8 @@ export function stopListening() {
   if (dictation?.active?.()) { void dictation.stop(); return; }
   try { rec?.stop(); } catch { /* ignore */ }
 }
+/** Abandon the current browser turn without delivering what was heard. */
+export function abortListening() { try { rec?.abort(); } catch { /* ignore */ } }
 export const isListening = () => state.listening || state.starting;
 export const clearVoiceError = () => set({ error: null });
 
@@ -200,10 +224,11 @@ export function simulateSpeech(text: string, onFinal: (t: string) => void) {
 
 // ------------------------------------------------------------------ speech synthesis (spoken replies)
 let voiceCache: SpeechSynthesisVoice | null | undefined;
-function pickVoice() {
-  if (voiceCache !== undefined) return voiceCache;
+export function pickVoice() {
+  if (voiceCache) return voiceCache;
   const vs = typeof speechSynthesis !== "undefined" ? speechSynthesis.getVoices() : [];
-  voiceCache = vs.find((v) => /en-IN/i.test(v.lang)) ?? vs.find((v) => /en-GB|en-US/i.test(v.lang)) ?? null;
+  if (!vs.length) return null; // voices load asynchronously: try again next time
+  voiceCache = vs.find((v) => /en-IN/i.test(v.lang)) ?? vs.find((v) => /en-GB/i.test(v.lang) && v.localService) ?? vs.find((v) => /en-(GB|US)/i.test(v.lang)) ?? vs.find((v) => /^en/i.test(v.lang)) ?? null;
   return voiceCache;
 }
 

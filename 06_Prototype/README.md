@@ -102,11 +102,36 @@ Screens expose this through `data-agent-*` attributes, the prototype's version o
 - **Expanded:** opens on its own when a component needs room (subscription, vacation, refund or resolution cards, product lists, wellness steps). It folds back into the bar about 2 seconds after the card is confirmed or cancelled. The customer can expand or collapse it at any time.
 - **Voice:** listening happens inside the bar, not on a separate screen.
 
+**Voice-first conversation** (`src/agent-ui/conversation.ts`).
+
+- **Captions are speech.** Everything the assistant shows in its captions is spoken exactly as shown, in order, without one message cutting off another: replies, questions, each live step while it works in the app, and voice notices.
+  - Speech runs sentence by sentence, and the caption highlights the sentence being spoken.
+  - Only pronunciation is normalised ("₹1,614" is read as "1,614 rupees", "★4.6" as "4.6 stars"); the words never change.
+  - While speech is on, the operator waits for each step to be spoken before acting, so the screen, the caption and the voice move together.
+  - The speaker button mutes the voice; the captions continue.
+- **Hands-free.** One tap on the mic starts a conversation that loops: listen, detect the end of speech, process, answer aloud, listen again. It needs no more taps.
+  - It ends when the customer says "that's all", "bye" or "I'm done", taps End, or stays silent for two turns. In the silent case the assistant says it will stop listening.
+- **States in the bar:**
+  - **Listening:** a live mic-level meter.
+  - **Thinking or Working:** while it processes or works in the app.
+  - **Speaking:** tap to interrupt.
+  - **Muted:** the mic is paused.
+- **Interruptions:**
+  - Tap the mic or the bar while it speaks.
+  - Or just start talking. Voice-activity detection on the mic stream interrupts the assistant; steady background noise and the assistant's own echo are filtered out.
+  - Say "stop" during a task (hosted page), or tap Stop on the step line.
+- **No duplicates.** While the assistant is working, anything heard is ignored except "stop", and a repeated recognition within 3 seconds is dropped. A task can't be triggered twice.
+- **Failures.**
+  - If the speech engine has no voices, the captions continue without waiting.
+  - If the speech service can't be reached, the assistant retries once, then ends the conversation.
+  - If the microphone is blocked, it explains how to allow it.
+
 **Microphone** (`src/agent-ui/voice.ts`):
 
 - The Permissions API is checked first, and `getUserMedia()` is called once per page session.
 - The stream is kept, with its track disabled between turns, and passed to `SpeechRecognition.start(track)` where supported. Repeated mic taps don't ask again.
 - If the permission is denied or revoked, the stream is released and the bar explains how to allow the microphone from the address bar.
+- During a hands-free conversation the stream stays live between turns; it is released when the conversation ends.
 - On the hosted page, claude.ai's dictation is used instead. It asks once per page.
 - **On a double-clicked file, Chrome can't remember the answer after the page is closed:** it asks once per page load. For a permanent grant, serve the demo (`npm run preview`, http://localhost) or use the hosted link.
 
@@ -139,11 +164,11 @@ Source_Code/
   src/backend/     rules.ts · api.ts (simulated tools) · store.ts (persisted state, inspector log)
   src/agent/       nlu.ts · engine.ts (conversation engine)
   src/operator/    screen.ts (screen context) · actions.ts (tap, fill, navigate, highlight, tiers) · operator.ts (goal planner)
-  src/agent-ui/    AgentSheet (AgentDock: compact bar ⇄ expanded panel) · Cards (components) · Channels (WhatsApp, call) · voice.ts (persistent mic, dictation)
+  src/agent-ui/    AgentSheet (AgentDock: compact bar ⇄ expanded panel) · Cards (components) · Channels (WhatsApp, call) · voice.ts (persistent mic, dictation) · conversation.ts (spoken captions, hands-free loop, voice activity)
   src/screens/     Shop (Home, Products, Product, Cart) · Account (Subscriptions, Edit, Vacations, CD Money, Transactions, Orders, Account & Preferences, Menu, Offers, History) · Wellness · Ayuh
   src/demo/        scenarios.ts · Panels (scenario launcher, controls, inspector)
-  tests/unit/      100 tests: NLU, dates, rules, all six scenarios, guardrails, and the operator against the rendered app (jsdom)
-  tests/e2e/       24 Playwright tests through the real UI (incl. operator, compact dock, microphone); screenshot capture
+  tests/unit/      105 tests: NLU, dates, rules, all six scenarios, guardrails, the operator against the rendered app (jsdom), captions == speech
+  tests/e2e/       28 Playwright tests through the real UI (incl. operator, compact dock, microphone, spoken captions, hands-free loop); screenshot capture
 ```
 
 ## Checks

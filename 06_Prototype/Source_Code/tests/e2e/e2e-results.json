@@ -1,145 +1,169 @@
 {
-  "ranAt": "2026-11-27T12:03:00.389Z",
-  "passed": 24,
-  "total": 24,
+  "ranAt": "2026-11-28T07:47:10.621Z",
+  "passed": 28,
+  "total": 28,
   "results": [
     {
       "id": "E01",
       "title": "Home renders seeded state (wallet ₹395, tomorrow 3 items)",
       "status": "PASS",
-      "ms": 112
+      "ms": 132
     },
     {
       "id": "E02",
       "title": "UC3 Scenario 1: add two packets of milk → cart badge 2",
       "status": "PASS",
-      "ms": 4123
+      "ms": 3606
     },
     {
       "id": "E03",
       "title": "UC5 Scenario 2: confirm subscription change, reflected in My Subscriptions, undo restores",
       "status": "PASS",
-      "ms": 3254
+      "ms": 3029
     },
     {
       "id": "E04",
       "title": "UC3 Scenario 3: vacation for next three days via voice card → Vacations screen",
       "status": "PASS",
-      "ms": 2169
+      "ms": 1763
     },
     {
       "id": "E05",
       "title": "UC1 Scenario 4: ₹500 explained as Autopay from ledger (₹78 below ₹200)",
       "status": "PASS",
-      "ms": 1245
+      "ms": 1767
     },
     {
       "id": "E06",
       "title": "UC1: unknown amount is not invented",
       "status": "PASS",
-      "ms": 839
+      "ms": 1364
     },
     {
       "id": "E07",
       "title": "UC2 Scenario 5: status + POD → policy options → confirm → case created and listed in history",
       "status": "PASS",
-      "ms": 4698
+      "ms": 4293
     },
     {
       "id": "E08",
       "title": "UC2 WhatsApp Hinglish: Hinglish reply with order status",
       "status": "PASS",
-      "ms": 2245
+      "ms": 2279
     },
     {
       "id": "E09",
       "title": "UC2 inbound call: verification before account data, then status",
       "status": "PASS",
-      "ms": 1817
+      "ms": 1864
     },
     {
       "id": "E10",
       "title": "UC6 Scenario 6: consent → goal → diet → peanut allergy → peanut butter excluded",
       "status": "PASS",
-      "ms": 2057
+      "ms": 1646
     },
     {
       "id": "E11",
       "title": "UC4 campaign: voice skipped without consent; in-app push → offer; STOP withdraws consent",
       "status": "PASS",
-      "ms": 1447
+      "ms": 1511
     },
     {
       "id": "E12",
       "title": "Ayuh coexistence: Something else → assistant opens with Ayuh context",
       "status": "PASS",
-      "ms": 548
+      "ms": 568
     },
     {
       "id": "E13",
       "title": "Guardrail: fault injection on confirm → 'nothing was changed', state unchanged",
       "status": "PASS",
-      "ms": 2349
+      "ms": 2208
     },
     {
       "id": "E14",
       "title": "Guardrail: declining a change leaves data unchanged",
       "status": "PASS",
-      "ms": 1480
+      "ms": 1530
     },
     {
       "id": "E15",
       "title": "Manual app flow: Set Vacation sheet blocks > 60 days and accepts a valid range",
       "status": "PASS",
-      "ms": 1452
+      "ms": 1477
     },
     {
       "id": "E16",
       "title": "Persistence: subscription change survives a reload; Reset restores seed",
       "status": "PASS",
-      "ms": 4570
+      "ms": 4626
     },
     {
       "id": "E17",
       "title": "Friction: looping My Subscriptions ×3 in 45 s shows one quiet suggestion",
       "status": "PASS",
-      "ms": 367
+      "ms": 513
     },
     {
       "id": "E18",
       "title": "Mobile viewport (390×844): app fills screen, no horizontal scroll, demo button present",
       "status": "PASS",
-      "ms": 1723
+      "ms": 1741
     },
     {
       "id": "E20",
       "title": "Operator: “protein powder under ₹2,000, best-rated, add to cart” is done in the app (search, sort, filter, tap, verify)",
       "status": "PASS",
-      "ms": 4397
+      "ms": 4217
     },
     {
       "id": "E21",
       "title": "Context: on a product page, “add two of this” uses that product and the page's own controls",
       "status": "PASS",
-      "ms": 5721
+      "ms": 5337
     },
     {
       "id": "E22",
       "title": "Compact dock: app stays visible and usable while the assistant is active",
       "status": "PASS",
-      "ms": 435
+      "ms": 505
     },
     {
       "id": "E23",
       "title": "Expanded state: opens for a component card, collapses on request and returns to the compact bar",
       "status": "PASS",
-      "ms": 2021
+      "ms": 1828
     },
     {
       "id": "E24",
       "title": "Microphone: permission requested once, stream reused across mic taps; denied state explains how to enable",
       "status": "PASS",
-      "ms": 7557
+      "ms": 7947
+    },
+    {
+      "id": "E25",
+      "title": "Captions == speech: greeting, every operator step and the reply are spoken exactly as shown, in order, without overlap",
+      "status": "PASS",
+      "ms": 8638
+    },
+    {
+      "id": "E26",
+      "title": "Hands-free: one mic tap → listens after each reply, processes, answers, until “that's all” — no further taps, one mic permission",
+      "status": "PASS",
+      "ms": 10554
+    },
+    {
+      "id": "E27",
+      "title": "Hands-free: two silent turns end the conversation with a spoken notice",
+      "status": "PASS",
+      "ms": 3726
+    },
+    {
+      "id": "E28",
+      "title": "Control: tap to interrupt the voice, mute/unmute the mic, mute the speaker, end the conversation",
+      "status": "PASS",
+      "ms": 3753
     },
     {
       "id": "E19",

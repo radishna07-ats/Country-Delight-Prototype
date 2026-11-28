@@ -38,6 +38,10 @@ E2E_STEPS = {
     "E22": ("Open assistant, tap Products in the app", "Bar under 64 px; compact assistant covers under 35% of the screen; app navigates while the assistant stays open"),
     "E23": ("Run s2 (card), Collapse, Show details", "Panel opens for the card and leaves the top of the app visible; collapses; reopens"),
     "E24": ("Fake microphone: tap mic on/off three times; separate run with permission denied", "getUserMedia called once; denied state explains how to allow the microphone"),
+    "E25": ("Type the protein-powder request with speech on (speech stand-in)", "Greeting, every step and the reply spoken exactly as captioned, in order; step on screen = step being spoken; highlighted sentence = sentence being spoken; no overlap"),
+    "E26": ("One mic tap, then say: the request, What's in my cart?, that's all (recognition stand-in)", "Listens again after each reply without taps; task done; getUserMedia once; closes politely"),
+    "E27": ("One mic tap, then silence twice", "Conversation ends with a spoken notice"),
+    "E28": ("Tap mic while speaking, tap again, speaker off, End", "Speech interrupted and listening; muted (no listening); voice muted; conversation ended"),
 }
 
 MANUAL = [

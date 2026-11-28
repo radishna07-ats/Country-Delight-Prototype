@@ -7,7 +7,9 @@ import { Wellness } from "./screens/Wellness";
 import { Ayuh } from "./screens/Ayuh";
 import { AgentDock } from "./agent-ui/AgentSheet";
 import { WhatsAppScreen, CallScreen } from "./agent-ui/Channels";
-import { initVoice, speak } from "./agent-ui/voice";
+import { initVoice } from "./agent-ui/voice";
+import { endConversation, interrupt, speakCaption } from "./agent-ui/conversation";
+import { setStepSpeaker } from "./operator/actions";
 import { ScenarioPanel, Inspector } from "./demo/Panels";
 import { I } from "./ui/icons";
 import { cx } from "./ui/kit";
@@ -97,8 +99,12 @@ function useLoopingFriction() {
 export function Phone() {
   const s = useUi(); useLoopingFriction();
   useEffect(() => {
-    const l = (t: string, ch: string) => { if (ch === "inapp" && (ui.get().speak || ui.get().voiceOpen)) speak(t); };
-    speakListeners.add(l); return () => { speakListeners.delete(l); };
+    // Captions == speech: every in-app assistant message is spoken exactly as shown, in order.
+    const l = (t: string, ch: string, id: string) => { if (ch === "inapp") void speakCaption(id, t); };
+    speakListeners.add(l);
+    // Leaving the in-app assistant (closing it, or switching to WhatsApp / a call) ends the voice conversation.
+    const u = ui.subscribe(() => { const s = ui.get(); if (!s.agentOpen || ["whatsapp", "call"].includes(s.route.screen) || !s.speak) { if (!s.speak) interrupt("speaker muted"); if (!s.agentOpen || ["whatsapp", "call"].includes(s.route.screen)) { endConversation("assistant closed"); interrupt("assistant closed"); } } });
+    return () => { speakListeners.delete(l); u(); };
   }, []);
   const Cur = SCREENS[s.route.screen] ?? Home;
   const full = FULL.includes(s.route.screen);
@@ -121,6 +127,7 @@ export function Phone() {
 }
 
 initVoice();
+setStepSpeaker(speakCaption);
 
 export default function App() {
   const [present, setPresent] = useState(() => new URLSearchParams(location.search).has("present") || location.hash === "#present");

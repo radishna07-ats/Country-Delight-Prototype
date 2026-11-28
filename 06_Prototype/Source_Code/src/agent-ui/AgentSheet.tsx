@@ -4,7 +4,8 @@ import { handleEvent, userSays, greet, resetEngine } from "../agent/engine";
 import type { Channel } from "../data/types";
 import { AgentCard } from "./Cards";
 import { openAssistant } from "./assistant";
-import { clearVoiceError, isListening, listen, simulateSpeech, stopListening, stopSpeaking, useVoice } from "./voice";
+import { clearVoiceError, simulateSpeech, useVoice } from "./voice";
+import { endConversation, interrupt, interruptAndListen, startConversation, submit, toggleMute, useConversation, type ConvState } from "./conversation";
 import { stopOperator } from "../operator/operator";
 import { SCREEN_NAMES } from "../operator/screen";
 import { I } from "../ui/icons";
@@ -16,7 +17,7 @@ export function AssistantAvatar({ size = 32, busy }: { size?: number; busy?: boo
 
 export function MessageList({ msgs, ch, thinking }: { msgs: Msg[]; ch: Channel; thinking: boolean }) {
   const end = useRef<HTMLDivElement>(null);
-  const op = useUi().operator;
+  const op = useUi().operator; const cap = useConversation().caption;
   useEffect(() => { end.current?.scrollIntoView?.({ behavior: "smooth", block: "end" }); }, [msgs.length, thinking, msgs[msgs.length - 1]?.cards?.[0]?.state]);
   return (
     <div className="grid gap-3" role="log" aria-live="polite" aria-label="Conversation with the assistant">
@@ -26,7 +27,8 @@ export function MessageList({ msgs, ch, thinking }: { msgs: Msg[]; ch: Channel; 
         <div key={m.id} className="flex gap-2 animate-rise" data-testid="msg-agent">
           <AssistantAvatar size={26} />
           <div className="flex-1 min-w-0 grid gap-2">
-            <div className="max-w-[94%] rounded-2xl rounded-tl-md bg-gray-50 border border-cd-line/70 px-3 py-2 text-[13px] leading-relaxed">{m.text}</div>
+            <div className={cx("max-w-[94%] rounded-2xl rounded-tl-md bg-gray-50 border px-3 py-2 text-[13px] leading-relaxed", cap?.id === m.id ? "border-cd-leaf ring-2 ring-cd-leaf/25" : "border-cd-line/70")} data-speaking={cap?.id === m.id || undefined}>
+              {cap?.id === m.id ? <SpokenText cap={cap} /> : m.text}</div>
             {m.cards?.map((c, i) => <AgentCard key={i} c={c} ch={ch} />)}
           </div>
         </div>
@@ -35,6 +37,13 @@ export function MessageList({ msgs, ch, thinking }: { msgs: Msg[]; ch: Channel; 
       <div ref={end} />
     </div>
   );
+}
+
+/** The caption being spoken: the current sentence is emphasised, spoken ones settle, upcoming ones are lighter. */
+function SpokenText({ cap }: { cap: NonNullable<ConvState["caption"]> }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => { ref.current?.scrollIntoView?.({ block: "nearest" }); }, [cap.index]);
+  return <>{cap.sentences.map((t, i) => <span key={i} ref={i === cap.index ? ref : undefined} className={cx(i === cap.index ? "text-cd-ink font-semibold bg-cd-mint/70 rounded px-0.5" : i < cap.index ? "text-cd-ink" : "text-cd-muted")} data-testid={i === cap.index ? "spoken-sentence" : undefined}>{t}{i < cap.sentences.length - 1 ? " " : ""}</span>)}</>;
 }
 
 const Dots = () => <span className="flex gap-1">{[0, 1, 2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-cd-leaf animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</span>;
@@ -98,6 +107,8 @@ export function AgentDock() {
   const s = useUi(); const v = useVoice();
   const [text, setText] = useState("");
   const [hideBubble, setHideBubble] = useState<string | null>(null);
+  const [typing, setTyping] = useState(false);
+  const c = useConversation();
   useAutoExpand();
   if (["whatsapp", "call"].includes(s.route.screen)) return null;
   const cta = CTA_SCREENS.includes(s.route.screen);
@@ -123,7 +134,7 @@ export function AgentDock() {
             <button type="button" data-testid="dock-open" onClick={() => openAssistant({})} className="flex-1 flex items-center gap-2 h-full text-left">
               <AssistantAvatar size={32} /><span className="text-[13px] text-cd-muted">Ask or tell me what to do…</span>
             </button>
-            <button type="button" aria-label="Speak to the assistant" data-testid="dock-mic" onClick={() => { openAssistant({}); startMic(); }} className="w-10 h-10 rounded-full grid place-items-center text-white orb"><I.mic size={18} /></button>
+            <button type="button" aria-label="Speak to the assistant" data-testid="dock-mic" onClick={() => { openAssistant({}); startConversation(); }} className="w-10 h-10 rounded-full grid place-items-center text-white orb"><I.mic size={18} /></button>
           </div>
         )}
       </div>
@@ -131,20 +142,25 @@ export function AgentDock() {
   }
 
   // ---------- active
-  const lastAgent = [...s.messages].reverse().find((m) => m.role === "agent");
   const lastMsg = s.messages[s.messages.length - 1];
+  // The caption being spoken takes the bubble until it is finished, so the voice and the text never drift apart.
+  const cap = c.caption && !c.caption.id.startsWith("step-") && !c.caption.id.startsWith("voice-error") ? c.caption : null;
+  const lastAgent = (cap && s.messages.find((m) => m.id === cap.id)) || [...s.messages].reverse().find((m) => m.role === "agent");
+  const speakingThis = !!cap && lastAgent?.id === cap.id;
   const busy = s.thinking || !!s.operator;
-  const listening = v.listening || v.starting;
-  const send = () => { const t = text.trim(); if (!t) return; setText(""); void userSays(t, "inapp"); };
-  function startMic() {
-    clearVoiceError(); stopSpeaking();
-    if (isListening()) { stopListening(); return; }
-    listen({ onInterim: () => {}, onFinal: (t) => void userSays(t, "inapp"), onError: () => {}, onEnd: () => {} });
-  }
+  const listening = c.handsFree ? c.phase === "listening" && !c.muted : v.listening || v.starting;
+  const send = () => { const t = text.trim(); if (!t) return; setText(""); setTyping(false); submit(t); };
+  const onMic = () => {
+    clearVoiceError();
+    if (!c.handsFree) return c.phase === "speaking" ? interruptAndListen() : startConversation();
+    if (c.phase === "speaking") return interruptAndListen();
+    toggleMute();
+  };
   const expand = (on: boolean) => ui.set((x) => ({ ...x, agentExpanded: on, agentPinned: on }));
-  const close = () => { stopListening(); stopOperator(); ui.set((x) => ({ ...x, agentOpen: false, agentExpanded: false, agentPinned: false, voiceOpen: false })); };
+  const close = () => { endConversation("closed"); interrupt("closed"); stopOperator(); ui.set((x) => ({ ...x, agentOpen: false, agentExpanded: false, agentPinned: false, voiceOpen: false })); };
   const bubbleKey = lastAgent?.id ?? "none";
-  const showBubble = !s.agentExpanded && hideBubble !== bubbleKey;
+  const showBubble = !s.agentExpanded && (hideBubble !== bubbleKey || speakingThis);
+  const stepSpoken = !!c.caption?.id && c.caption.id === s.operator?.id;
   const hasHiddenCards = !!lastAgent?.cards?.some((c) => !COMPACT_CARDS.includes(c.type));
 
   return (
@@ -168,52 +184,88 @@ export function AgentDock() {
         <div className="pointer-events-auto grid gap-1.5 dock-compact">
           {s.operator ? (
             <div className="rounded-2xl bg-cd-deep text-white px-3 py-2 text-[12.5px] flex items-center gap-2 shadow-card" data-testid="operator-step" role="status">
-              <span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin shrink-0" />
-              <span className="flex-1 min-w-0 truncate">{s.operator.step}</span>
+              {stepSpoken ? <I.volume size={15} className="shrink-0 animate-pulse" /> : <span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin shrink-0" />}
+              <span className="flex-1 min-w-0 leading-snug" data-testid="operator-step-text">{s.operator.step}</span>
               <button type="button" onClick={() => stopOperator()} data-testid="operator-stop" className="h-6 px-2 rounded-full bg-white/15 text-[11px] font-bold">Stop</button>
             </div>
-          ) : listening || v.interim ? (
+          ) : !c.handsFree && (listening || v.interim) ? (
             <div className="ml-auto max-w-[88%] rounded-2xl rounded-br-md bg-cd-green/95 text-white px-3 py-2 text-[13px] italic shadow-card" data-testid="voice-interim">{v.interim || "Listening…"}</div>
           ) : v.error ? (
             <div className="rounded-2xl bg-orange-50 border border-orange-200 px-3 py-2 text-[12px] text-cd-ink shadow-card" data-testid="voice-error" role="alert">
               {v.error}
-              <div className="mt-1.5 flex gap-1.5 overflow-x-auto no-scrollbar">{TRY.slice(0, 3).map((t) => <button key={t} type="button" onClick={() => { clearVoiceError(); simulateSpeech(t, (x) => void userSays(x, "inapp")); }} className="shrink-0 h-7 px-2.5 rounded-full bg-white border border-cd-line text-[11px]">“{t.length > 34 ? t.slice(0, 32) + "…" : t}”</button>)}</div>
+              <div className="mt-1.5 flex gap-1.5 overflow-x-auto no-scrollbar">{TRY.slice(0, 3).map((t) => <button key={t} type="button" onClick={() => { clearVoiceError(); simulateSpeech(t, (x) => submit(x)); }} className="shrink-0 h-7 px-2.5 rounded-full bg-white border border-cd-line text-[11px]">“{t.length > 34 ? t.slice(0, 32) + "…" : t}”</button>)}</div>
             </div>
-          ) : s.thinking ? (
+          ) : s.thinking && !speakingThis ? (
             <div className="rounded-2xl bg-white/95 backdrop-blur border border-cd-line px-3 py-2 text-[12.5px] text-cd-muted flex items-center gap-2 shadow-card w-fit" data-testid="thinking"><Dots />Thinking…</div>
           ) : showBubble && lastAgent && lastMsg?.role !== "user" ? (
             <div className="flex items-end gap-1.5 animate-rise" key={bubbleKey}>
-              <div className="flex-1 min-w-0 rounded-2xl rounded-bl-md bg-white border border-cd-line px-3 py-2 text-[13px] leading-snug shadow-card" data-testid="msg-agent">
-                <div className="line-clamp-4" data-testid="agent-bubble">{lastAgent.text}</div>
-                {(hasHiddenCards || lastAgent.text.length > 180) && <button type="button" onClick={() => expand(true)} className="mt-1 text-[11.5px] font-bold text-cd-green" data-testid="show-details">{hasHiddenCards ? "Show details" : "Show more"}</button>}
+              <div className={cx("flex-1 min-w-0 rounded-2xl rounded-bl-md bg-white border px-3 py-2 text-[13px] leading-snug shadow-card", speakingThis ? "border-cd-leaf" : "border-cd-line")} data-testid="msg-agent" data-speaking={speakingThis || undefined}>
+                <div className={speakingThis ? "max-h-[132px] overflow-y-auto no-scrollbar" : "line-clamp-4"} data-testid="agent-bubble">{speakingThis ? <SpokenText cap={cap!} /> : lastAgent.text}</div>
+                {!speakingThis && (hasHiddenCards || lastAgent.text.length > 180) && <button type="button" onClick={() => expand(true)} className="mt-1 text-[11.5px] font-bold text-cd-green" data-testid="show-details">{hasHiddenCards ? "Show details" : "Show more"}</button>}
               </div>
               <button type="button" aria-label="Hide reply" onClick={() => setHideBubble(bubbleKey)} className="w-7 h-7 rounded-full bg-white/90 border border-cd-line grid place-items-center text-cd-muted shrink-0"><I.x size={12} /></button>
             </div>
           ) : s.voiceOpen && !lastAgent ? (
             <div className="rounded-2xl bg-white/95 border border-cd-line px-3 py-2 text-[12px] shadow-card">Tap the mic and speak, or try one of these:</div>
           ) : null}
-          {!busy && !listening && showBubble && <Chips msgs={s.messages} ch="inapp" />}
-          {s.voiceOpen && !busy && !listening && !lastAgent && <div className="flex gap-1.5 overflow-x-auto no-scrollbar">{TRY.slice(1).map((t) => <button key={t} type="button" onClick={() => simulateSpeech(t, (x) => void userSays(x, "inapp"))} className="shrink-0 h-8 px-3 rounded-full bg-white border border-cd-line text-[11.5px] shadow-sm">“{t}”</button>)}</div>}
+          {c.handsFree && c.heard && <div className="ml-auto max-w-[88%] rounded-2xl rounded-br-md bg-cd-green/95 text-white px-3 py-2 text-[13px] italic shadow-card" data-testid="voice-interim">{c.heard}</div>}
+          {!busy && !(listening && c.heard) && showBubble && <Chips msgs={s.messages} ch="inapp" />}
+          {s.voiceOpen && !busy && !listening && !lastAgent && <div className="flex gap-1.5 overflow-x-auto no-scrollbar">{TRY.slice(1).map((t) => <button key={t} type="button" onClick={() => simulateSpeech(t, (x) => submit(x))} className="shrink-0 h-8 px-3 rounded-full bg-white border border-cd-line text-[11.5px] shadow-sm">“{t}”</button>)}</div>}
         </div>
       )}
 
       {/* The bar: always docked at the bottom while the assistant is active */}
-      <div className={cx("pointer-events-auto h-[52px] rounded-full bg-white border shadow-card flex items-center pl-1.5 pr-1 gap-1", listening ? "border-cd-leaf ring-2 ring-cd-leaf/30" : "border-cd-line")} data-testid="agent-bar">
-        <button type="button" aria-label={s.agentExpanded ? "Collapse assistant" : "Expand assistant"} onClick={() => expand(!s.agentExpanded)} className="shrink-0"><AssistantAvatar size={38} busy={busy || listening} /></button>
-        {listening ? (
+      <div className={cx("pointer-events-auto h-[52px] rounded-full bg-white border shadow-card flex items-center pl-1.5 pr-1 gap-0.5", listening ? "border-cd-leaf ring-2 ring-cd-leaf/30" : c.phase === "speaking" ? "border-cd-leaf/60" : "border-cd-line")} data-testid="agent-bar">
+        <button type="button" aria-label={s.agentExpanded ? "Collapse assistant" : "Expand assistant"} onClick={() => expand(!s.agentExpanded)} className="shrink-0"><AssistantAvatar size={38} busy={busy || listening || c.phase === "speaking"} /></button>
+        {c.handsFree && !typing ? (
+          <ConvStrip c={c} starting={v.starting} working={!!s.operator} onInterrupt={() => interruptAndListen()} onType={() => setTyping(true)} />
+        ) : !c.handsFree && listening ? (
           <div className="flex-1 min-w-0 px-2 flex items-center gap-2" data-testid="voice-state"><span className="flex items-end gap-[3px] h-4">{[0, 1, 2, 3].map((i) => <span key={i} className="w-[3px] h-full bg-cd-leaf rounded-full origin-bottom animate-bar" style={{ animationDelay: `${i * 0.12}s` }} />)}</span><span className="text-[13px] text-cd-ink truncate">{v.starting ? "Starting microphone…" : "Listening…"}</span></div>
         ) : (
-          <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder={s.operator ? "Working in the app…" : "Ask or tell me what to do…"} aria-label="Message the assistant" data-testid="composer"
+          <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send(); if (e.key === "Escape") setTyping(false); }} placeholder={s.operator ? "Working in the app…" : "Ask or tell me what to do…"} aria-label="Message the assistant" data-testid="composer" autoFocus={typing}
             className="flex-1 min-w-0 h-10 bg-transparent px-2 text-[13.5px] outline-none" />
         )}
-        {text.trim() && !listening ? (
+        <button type="button" aria-label={s.speak ? "Mute the assistant's voice" : "Turn the assistant's voice on"} aria-pressed={s.speak} data-testid="speaker" onClick={() => ui.set((x) => ({ ...x, speak: !x.speak }))}
+          className={cx("w-8 h-8 rounded-full grid place-items-center shrink-0 hover:bg-cd-mint", s.speak ? "text-cd-green" : "text-cd-muted")}>{s.speak ? <I.volume size={17} /> : <I.volumeOff size={17} />}</button>
+        {text.trim() && (!c.handsFree || typing) ? (
           <button type="button" onClick={send} aria-label="Send" data-testid="send" className="w-10 h-10 rounded-full bg-cd-green text-white grid place-items-center shrink-0"><I.send size={17} /></button>
         ) : (
-          <button type="button" onClick={startMic} aria-label={listening ? "Stop listening" : "Speak"} aria-pressed={listening} data-testid="mic"
-            className={cx("w-10 h-10 rounded-full grid place-items-center text-white shrink-0 transition-colors", listening ? "bg-cd-danger" : "orb")}>{listening ? <span className="w-3.5 h-3.5 rounded-[3px] bg-white" /> : <I.mic size={18} />}</button>
+          <button type="button" onClick={onMic} data-testid="mic"
+            aria-label={!c.handsFree ? "Start a voice conversation" : c.phase === "speaking" ? "Interrupt and speak" : c.muted ? "Unmute the microphone" : "Mute the microphone"} aria-pressed={c.handsFree && !c.muted}
+            className={cx("w-10 h-10 rounded-full grid place-items-center text-white shrink-0 transition-colors", c.handsFree && c.muted ? "bg-gray-400" : "orb", listening && "ring-4 ring-cd-leaf/25")}>{c.handsFree && c.muted ? <I.micOff size={18} /> : <I.mic size={18} />}</button>
         )}
-        <button type="button" aria-label="Close assistant" data-testid="close-agent" onClick={close} className="w-9 h-9 rounded-full grid place-items-center text-cd-muted hover:bg-cd-mint shrink-0"><I.x size={17} /></button>
+        {c.handsFree ? (
+          <button type="button" aria-label="End the voice conversation" data-testid="end-conversation" onClick={() => { endConversation("customer ended"); interrupt("ended"); setTyping(false); }} className="w-9 h-9 rounded-full grid place-items-center text-white bg-cd-danger shrink-0 ml-0.5"><I.phoneDown size={18} /></button>
+        ) : (
+          <button type="button" aria-label="Close assistant" data-testid="close-agent" onClick={close} className="w-9 h-9 rounded-full grid place-items-center text-cd-muted hover:bg-cd-mint shrink-0"><I.x size={17} /></button>
+        )}
       </div>
+    </div>
+  );
+}
+
+/** What the assistant is doing in a hands-free conversation: listening (with the live mic level), thinking,
+ *  working in the app, speaking (tap to interrupt) or muted. */
+function ConvStrip({ c, starting, working, onInterrupt, onType }: { c: ConvState; starting: boolean; working: boolean; onInterrupt: () => void; onType: () => void }) {
+  const phase = c.muted ? "muted" : c.phase;
+  const label = phase === "muted" ? "Mic muted" : phase === "listening" ? (starting ? "Starting mic…" : "Listening…") : phase === "speaking" ? "Speaking" : working ? "Working…" : "Thinking…";
+  const hint = phase === "muted" ? "Tap the mic to talk" : phase === "speaking" ? "Tap to interrupt" : undefined;
+  const bars = [0.55, 0.9, 1, 0.75, 0.5];
+  return (
+    <div className="flex-1 min-w-0 flex items-center" data-testid="conv-state" data-phase={phase} role="status" aria-live="polite">
+      <button type="button" onClick={phase === "speaking" ? onInterrupt : undefined} disabled={phase !== "speaking"} title={hint} aria-label={hint ? `${label}. ${hint}` : label} className="flex-1 min-w-0 px-2 flex items-center gap-2 text-left disabled:cursor-default">
+        {phase === "listening" ? (
+          <span className="flex items-center gap-[3px] h-5 w-[26px]">{bars.map((k, i) => <span key={i} className="w-[3px] rounded-full bg-cd-leaf transition-[height] duration-75" style={{ height: `${Math.max(3, Math.min(20, 3 + c.level * 22 * k + (c.level < 0.02 ? 0 : 0)))}px` }} />)}</span>
+        ) : phase === "speaking" ? (
+          <span className="flex items-end gap-[3px] h-4 w-[26px] text-cd-green">{[0, 1, 2, 3].map((i) => <span key={i} className="w-[3px] h-full bg-cd-green rounded-full origin-bottom animate-bar" style={{ animationDelay: `${i * 0.12}s` }} />)}</span>
+        ) : phase === "muted" ? (
+          <I.micOff size={16} className="text-cd-muted w-[26px]" />
+        ) : (
+          <span className="flex gap-1 w-[26px]">{[0, 1, 2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-cd-leaf animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</span>
+        )}
+        <span className="min-w-0 flex flex-col leading-tight"><span className={cx("text-[12.5px] truncate", phase === "muted" ? "text-cd-muted" : "text-cd-ink font-semibold")}>{label}</span>{hint && <span className="text-[10px] text-cd-muted truncate">{hint}</span>}</span>
+      </button>
+      <button type="button" aria-label="Type instead" onClick={onType} className="w-7 h-7 rounded-full grid place-items-center text-cd-muted hover:bg-cd-mint shrink-0"><I.keyboard size={15} /></button>
     </div>
   );
 }

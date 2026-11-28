@@ -22,7 +22,11 @@ async function waitForServer(ms = 20000) {
 async function tc(id, title, fn, page) {
   const t0 = Date.now();
   try { await fn(page); results.push({ id, title, status: "PASS", ms: Date.now() - t0 }); console.log(`PASS ${id} ${title}`); }
-  catch (e) { results.push({ id, title, status: "FAIL", ms: Date.now() - t0, error: String(e.message || e).slice(0, 300) }); console.log(`FAIL ${id} ${title}\n     ${e.message}`); }
+  catch (e) {
+    page = page || globalThis.__page;
+    let seen = ""; try { seen = await page.evaluate(() => [...document.querySelectorAll("[data-testid=msg-agent], [data-testid=operator-step], [data-testid=conv-state], [data-testid=thinking]")].map((m) => m.textContent.slice(0, 90)).slice(-3).join(" ‖ ")); } catch { /* page gone */ }
+    if (process.env.E2E_SHOTS) { try { await page.screenshot({ path: path.join(process.env.E2E_SHOTS, `fail-${id}.png`) }); } catch { /* ignore */ } }
+    results.push({ id, title, status: "FAIL", ms: Date.now() - t0, error: String(e.message || e).slice(0, 300), seen }); console.log(`FAIL ${id} ${title}\n     ${e.message}\n     on screen: ${seen}`); }
 }
 const expectText = async (loc, re, timeout = 8000) => { await loc.filter({ hasText: re }).first().waitFor({ timeout }); };
 
@@ -34,6 +38,7 @@ const expectText = async (loc, re, timeout = 8000) => { await loc.filter({ hasTe
     browser = await chromium.launch();
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 960 } });
     const page = await ctx.newPage();
+    globalThis.__page = page;
     const pageErrors = [];
     page.on("pageerror", (e) => pageErrors.push(e.message));
     await page.goto(URL); await page.waitForTimeout(1600);
@@ -255,6 +260,120 @@ const expectText = async (loc, re, timeout = 8000) => { await loc.filter({ hasTe
         await q.click("[data-testid=dock-open]"); await q.click("[data-testid=mic]");
         await expectText(q.locator("[data-testid=voice-error]"), /Microphone access is blocked.*address bar/);
       } finally { await mb.close(); }
+    });
+
+    // ---------------- voice-first: captions == speech, hands-free loop ----------------
+    // Headless Chromium has no voices or speech recognition, so deterministic stand-ins are injected: the speech
+    // stand-in records every utterance (and any overlap); the recognition stand-in plays a scripted list of
+    // utterances (null = silence). Everything else — engine, operator, conversation loop, UI — is the real app.
+    const fakes = (script, msPerChar = 3) => `
+      window.__spoken = []; window.__overlap = 0; window.__srStarts = 0; window.__gum = 0; window.__script = ${JSON.stringify(script)};
+      let speaking = 0, cur = null;
+      const synth = { speaking: false, pending: false, paused: false,
+        getVoices: () => [{ name: "Test", lang: "en-IN", localService: true, default: true, voiceURI: "test" }],
+        speak(u) { window.__spoken.push(u.text); window.__now = u.text; speaking++; if (speaking > 1) window.__overlap++; cur = u;
+          setTimeout(() => u.onstart && u.onstart({}), 5);
+          u.__t = setTimeout(() => { speaking--; cur = null; window.__now = ""; u.onend && u.onend({}); }, 40 + u.text.length * ${msPerChar}); },
+        cancel() { if (cur) { clearTimeout(cur.__t); const u = cur; cur = null; speaking = 0; window.__now = ""; u.onerror && u.onerror({ error: "interrupted" }); } window.__cancels = (window.__cancels || 0) + 1; },
+        addEventListener() {}, removeEventListener() {}, resume() {}, pause() {} };
+      Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true });
+      window.SpeechSynthesisUtterance = class { constructor(t) { this.text = t; } };
+      class SR { start() { window.__srStarts++; const next = window.__script.length ? window.__script.shift() : null; this.__ended = false;
+          this.__t = setTimeout(() => { if (this.__ended) return;
+            if (next == null) { this.onerror && this.onerror({ error: "no-speech" }); }
+            else { const r = [{ transcript: next }]; r.isFinal = true; this.onresult && this.onresult({ resultIndex: 0, results: [r] }); }
+            this.__ended = true; this.onend && this.onend(); }, 350); }
+        stop() {} abort() { if (this.__ended) return; clearTimeout(this.__t); this.__ended = true; this.onerror && this.onerror({ error: "aborted" }); this.onend && this.onend(); } }
+      window.SpeechRecognition = SR; window.webkitSpeechRecognition = SR;
+      const gum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getUserMedia = (c) => { window.__gum++; return gum(c); };`;
+    const voicePage = async (script, msPerChar) => {
+      const vb = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
+      const c = await vb.newContext({ viewport: { width: 1600, height: 960 }, permissions: ["microphone"] });
+      await c.addInitScript(fakes(script, msPerChar));
+      const v = await c.newPage(); await v.goto(URL); await v.waitForTimeout(1500);
+      await v.click("[data-testid=ctl-reset]"); await v.click("[data-testid=ctl-home]"); await v.waitForTimeout(300);
+      return { vb, v };
+    };
+    /** Every caption the assistant showed must have been spoken, sentence by sentence, exactly, in order. */
+    const checkSpoken = async (v, extra = []) => {
+      const r = await v.evaluate((extra) => {
+        const S = window.__cdSpeech; const msgs = JSON.parse(localStorage.getItem("cd-graine-ui") || "{}").messages || [];
+        const want = []; msgs.filter((m) => m.role === "agent" && m.channel === "inapp").forEach((m) => S.sentencesOf(m.text).forEach((x) => want.push(S.toSpeech(x))));
+        extra.forEach((x) => want.push(S.toSpeech(x)));
+        const got = window.__spoken; const missing = want.filter((w) => !got.includes(w));
+        return { missing, got: got.length, want: want.length, overlap: window.__overlap };
+      }, extra);
+      if (r.missing.length) throw new Error(`captions not spoken: ${JSON.stringify(r.missing.slice(0, 3))}`);
+      if (r.overlap) throw new Error(`overlapping speech ×${r.overlap}`);
+      return r;
+    };
+
+    await tc("E25", "Captions == speech: greeting, every operator step and the reply are spoken exactly as shown, in order, without overlap", async () => {
+      const { vb, v } = await voicePage([], 3);
+      try {
+        await v.click("[data-testid=dock-open]"); await v.waitForTimeout(400);
+        await v.fill("[data-testid=composer]", "Find me a protein powder under ₹2,000 and add the best-rated option to my cart."); await v.click("[data-testid=send]");
+        // while it works: the step on screen is the step being spoken
+        await v.waitForSelector("[data-testid=operator-step]", { timeout: 8000 });
+        const sync = await v.waitForFunction(() => { const t = document.querySelector("[data-testid=operator-step-text]")?.textContent; return t && window.__now && window.__cdSpeech.toSpeech(t) === window.__now ? t : false; }, null, { timeout: 8000 });
+        const step = await sync.jsonValue();
+        await v.waitForFunction(() => !document.querySelector("[data-testid=operator-step]"), null, { timeout: 40000 });
+        // the reply: the highlighted sentence is the one being spoken
+        await v.waitForFunction(() => { const t = document.querySelector("[data-testid=agent-bubble] [data-testid=spoken-sentence]")?.textContent?.trim(); return t && window.__cdSpeech.toSpeech(t) === window.__now; }, null, { timeout: 8000 });
+        await v.waitForFunction(() => !window.__now, null, { timeout: 30000 }); await v.waitForTimeout(400);
+        const steps = await v.evaluate(() => window.__spoken.filter((x) => /Typing|Sorting|Reviewing|Choosing|Adding/.test(x)));
+        if (steps.length < 4) throw new Error(`operator steps not narrated: ${JSON.stringify(steps)}`);
+        await checkSpoken(v, [step]);
+        await expectText(v.locator("[data-testid=cart-badge]"), /^1$/);
+      } finally { await vb.close(); }
+    });
+
+    await tc("E26", "Hands-free: one mic tap → listens after each reply, processes, answers, until “that's all” — no further taps, one mic permission", async () => {
+      const { vb, v } = await voicePage(["Find me a protein powder under ₹2,000 and add the best-rated option to my cart", "What's in my cart?", "that's all"], 1);
+      try {
+        await v.click("[data-testid=dock-open]"); await v.waitForTimeout(200);
+        await v.click("[data-testid=mic]");                                   // the only tap
+        await v.waitForSelector("[data-testid=conv-state]", { timeout: 5000 });
+        await v.waitForFunction(() => !document.querySelector("[data-testid=end-conversation]"), null, { timeout: 90000 });
+        const r = await v.evaluate(() => ({ starts: window.__srStarts, gum: window.__gum, cart: document.querySelector("[data-testid=cart-badge]")?.textContent, spoken: window.__spoken.join(" | ") }));
+        if (r.cart !== "1") throw new Error("task not done by voice");
+        if (r.starts < 3) throw new Error(`listened ${r.starts} times`);
+        if (r.gum !== 1) throw new Error(`getUserMedia called ${r.gum} times`);
+        if (!/stop listening now/.test(r.spoken)) throw new Error(`did not close the conversation politely: ${r.spoken}`);
+        await checkSpoken(v);
+      } finally { await vb.close(); }
+    });
+
+    await tc("E27", "Hands-free: two silent turns end the conversation with a spoken notice", async () => {
+      const { vb, v } = await voicePage([null, null], 1);
+      try {
+        await v.click("[data-testid=dock-open]");
+        await v.waitForFunction(() => window.__spoken.length > 0 && !window.__now, null, { timeout: 5000 }); await v.waitForTimeout(300); // let the greeting finish
+        await v.click("[data-testid=mic]");
+        await v.waitForFunction(() => !document.querySelector("[data-testid=end-conversation]"), null, { timeout: 30000 });
+        await v.waitForFunction(() => window.__spoken.some((x) => /stop listening for now/.test(x)), null, { timeout: 8000 });
+        await checkSpoken(v);
+      } finally { await vb.close(); }
+    });
+
+    await tc("E28", "Control: tap to interrupt the voice, mute/unmute the mic, mute the speaker, end the conversation", async () => {
+      const { vb, v } = await voicePage([null, null, null, null], 25);   // slow speech so there is time to interrupt
+      try {
+        await v.click("[data-testid=dock-open]");
+        await v.waitForFunction(() => !!window.__now, null, { timeout: 5000 });   // the greeting is being spoken
+        await v.click("[data-testid=mic]");                                   // tap to interrupt and talk
+        await v.waitForSelector("[data-testid=conv-state][data-phase=listening]", { timeout: 5000 });
+        if (!(await v.evaluate(() => window.__cancels > 0))) throw new Error("speech not cancelled");
+        await v.click("[data-testid=mic]");                                   // mute
+        await v.waitForSelector("[data-testid=conv-state][data-phase=muted]", { timeout: 3000 });
+        const starts = await v.evaluate(() => window.__srStarts); await v.waitForTimeout(1200);
+        if ((await v.evaluate(() => window.__srStarts)) !== starts) throw new Error("listened while muted");
+        await v.click("[data-testid=speaker]");                               // speaker off
+        if ((await v.getAttribute("[data-testid=speaker]", "aria-pressed")) !== "false") throw new Error("speaker not muted");
+        await v.click("[data-testid=end-conversation]");
+        await v.waitForSelector("[data-testid=close-agent]", { timeout: 3000 });
+      } finally { await vb.close(); }
     });
 
     await tc("E19", "No uncaught page errors during the run", async () => { if (pageErrors.length) throw new Error(pageErrors.join(" | ")); });

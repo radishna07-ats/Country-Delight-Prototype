@@ -41,14 +41,14 @@ let lang: "en" | "hi" = "en";
 let lastParsed: Parsed | null = null;
 const L = (en: string, hi?: string) => (lang === "hi" && hi ? hi : en);
 
-export const speakListeners = new Set<(text: string, channel: Channel) => void>();
+export const speakListeners = new Set<(text: string, channel: Channel, id: string) => void>();
 
 // ------------------------------------------------------------------ message plumbing
 const threadKey = (ch: Channel) => (ch === "whatsapp" ? "waMessages" : ch === "voice" ? "callMessages" : "messages") as "messages" | "waMessages" | "callMessages";
 function push(ch: Channel, m: Omit<Msg, "id" | "at" | "channel">) {
   const msg: Msg = { id: uid("m"), at: db.get().clock, channel: ch, ...m };
   ui.set((s) => ({ ...s, [threadKey(ch)]: [...s[threadKey(ch)], msg] }));
-  if (m.role === "agent") speakListeners.forEach((l) => l(m.text, ch));
+  if (m.role === "agent") speakListeners.forEach((l) => l(m.text, ch, msg.id));
   return msg;
 }
 const say = (ch: Channel, text: string, cards?: CardData[], chips?: Chip[]) => push(ch, { role: "agent", text, cards, chips });
@@ -165,6 +165,7 @@ async function route(p: Parsed, ch: Channel, subIdHint?: string) {
     case "screen_query": case "ui_tap": case "ui_fill": case "ui_scroll": case "ui_back":
       return say(ch, "I can only see and use the screen inside the Country Delight app.");
     case "thanks": return say(ch, L("You're welcome! Anything else?", "Koi baat nahi! Aur kuch?"));
+    case "goodbye": return say(ch, L("Glad I could help. I'll stop listening now. Tap the mic whenever you need me.", "Khushi hui madad karke. Ab main sunna band kar rahi hoon. Zarurat ho to mic dabaiye."));
     case "yes": case "no": return yesNo(p.intent === "yes", ch);
     case "human": return handoff(ch, "Customer asked for a person");
     case "medical": return medical(ch);
@@ -1032,6 +1033,9 @@ function findFallback(p: Parsed, ch: Channel) {
   return say(ch, `${list.length} match${list.length > 1 ? "es" : ""} for “${f.query}”. ${f.pick ? `Top pick: ${list[0].name}, ${rupees(unitPrice(list[0], vip))}${list[0].rating ? `, ★${list[0].rating}` : ""}.` : ""}`,
     [{ type: "products", mode: "add", items: list.slice(0, 4).map((x) => ({ productId: x.id, qty: p.qty ?? 1 })), date: earliestChangeDate(db.get().clock) }]);
 }
+
+/** A short spoken-and-shown message from the assistant itself (e.g. the hands-free loop ending). */
+export function notice(text: string, ch: Channel = "inapp") { say(ch, text); }
 
 // Hidden "still remove" chip handler
 const _userSays = userSays;

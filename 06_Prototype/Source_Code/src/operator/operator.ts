@@ -41,7 +41,7 @@ async function ensureSearch(): Promise<string | null> {
   let ctx = observe();
   let s = ctx.inputs.find((i) => i.field === "search");
   if (s) return s.ref;
-  setStep("Opening search…");
+  await setStep("Opening search…");
   const homeSearch = ctx.elements.find((e) => e.nav === "products" && /search/i.test(e.label));
   if (homeSearch) await tap(homeSearch.ref, { why: "open search" }); else await goTo("products");
   ctx = observe(); s = ctx.inputs.find((i) => i.field === "search");
@@ -51,14 +51,14 @@ async function ensureSearch(): Promise<string | null> {
 export async function searchFor(query: string): Promise<ScreenContext | null> {
   const ref = await ensureSearch(); if (!ref) return null;
   const cur = observe().inputs.find((i) => i.ref === ref);
-  if ((cur?.value ?? "").trim().toLowerCase() !== query.toLowerCase()) { setStep(`Typing “${query}” into search…`); await fill(ref, query); }
+  if ((cur?.value ?? "").trim().toLowerCase() !== query.toLowerCase()) { await setStep(`Typing “${query}” into search…`); await fill(ref, query); }
   return observe();
 }
 
 async function sortBy(kind: "rating" | "price") {
   const label = kind === "rating" ? "Sort by Rating" : "Sort by Price: low to high";
   const b = observe().elements.find((e) => e.label === label);
-  if (b) { setStep(kind === "rating" ? "Sorting results by rating…" : "Sorting results by price…"); await tap(b.ref, { why: `sort by ${kind}` }); }
+  if (b) { await setStep(kind === "rating" ? "Sorting results by rating…" : "Sorting results by price…"); await tap(b.ref, { why: `sort by ${kind}` }); }
 }
 
 function choose(c: ScreenProduct[], pick?: Pick): ScreenProduct {
@@ -72,13 +72,12 @@ function choose(c: ScreenProduct[], pick?: Pick): ScreenProduct {
 /** Search the catalogue in the app, filter what is on screen by the customer's constraints, pick, optionally add. */
 export async function findProducts(spec: FindSpec): Promise<OpReport> {
   return run(async () => {
-    setStep(`Reading the ${observe().title} screen…`); await wait(250);
     let ctx = await searchFor(spec.query);
     if (!ctx) return { ok: false, text: "I couldn't find a search box in the app." };
     if (spec.pick === "best_rated" || spec.pick === "most_reviewed") await sortBy("rating"); else if (spec.pick === "cheapest") await sortBy("price");
     ctx = observe();
     const results = ctx.products;
-    setStep(`Reviewing ${plural(results.length, "result")}…`);
+    await setStep(`Reviewing ${plural(results.length, "result")}…`);
     logCall({ name: `read_results("${spec.query}")`, kind: "screen", status: "info", channel: "inapp", args: { results: results.map((r) => ({ id: r.productId, price: r.price, rating: r.rating })) } });
     await wait(350);
     if (!results.length) return { ok: false, text: `I searched for “${spec.query}”, but nothing came up in the catalogue. Want to try another word?`, chips: [{ label: "Show all products", screen: "products" }] };
@@ -90,7 +89,7 @@ export async function findProducts(spec: FindSpec): Promise<OpReport> {
         chips: low ? [{ label: `Add ${low.name}`, say: `Add the ${low.name} to my cart` }] : [] };
     }
     const chosen = (spec.productId && ok.find((r) => r.productId === spec.productId)) || choose(ok, spec.pick);
-    setStep(`Choosing ${chosen.name}…`); await highlight(chosen.ref, 700);
+    await setStep(`Choosing ${chosen.name}…`); await highlight(chosen.ref, 700);
     const why = reason(spec, chosen, ok, inStock);
     if (!spec.add) {
       return { ok: true, productId: chosen.productId, options: ok,
@@ -133,12 +132,11 @@ export async function addProductOnScreen(productId: string, qty: number): Promis
     const cur = observe(); const pr = cur.products.find((p) => p.productId === productId)!;
     const btn = within(pr.ref, cur.elements).find((e) => e.action === "add");
     if (!btn) return { ok: false, text: `I can see ${pr.name}, but not its Add button.` };
-    setStep(`Adding ${pr.name}${qty > 1 ? ` (${i + 1} of ${qty})` : ""}…`);
+    await setStep(`Adding ${pr.name}${qty > 1 ? ` (${i + 1} of ${qty})` : ""}…`);
     const r = await tap(btn.ref, { why: `add ${pr.name} to cart` });
     if (r.status !== "ok") return { ok: false, text: r.message ?? "That didn't go through." };
     await until(() => inCart() >= before + i + 1);
   }
-  setStep("Checking your cart…");
   const after = inCart();
   logCall({ name: `verify: ${byId(productId).name} in cart ${before} → ${after}`, kind: "screen", status: after - before >= qty ? "ok" : "error", channel: "inapp" });
   if (after - before < qty) return { ok: false, text: `I tapped Add, but the cart didn't change, so ${after > before ? "only part of it was" : "nothing was"} added. Want me to try again?`, chips: [{ label: "Try again", say: `Add ${qty} ${byId(productId).short} to my cart` }] };
@@ -150,7 +148,7 @@ async function addFromDetail(productId: string, qty: number): Promise<OpReport &
   let ctx = observe();
   const freq = ctx.elements.find((e) => e.label.startsWith("Subscription type:"));
   if (freq && !/One time$/.test(freq.label)) {
-    setStep("Switching to a one-time purchase…");
+    await setStep("Switching to a one-time purchase…");
     await tap(freq.ref, { why: "change subscription type" });
     const once = observe().elements.find((e) => e.label === "Frequency One time");
     if (!once) return { ok: false, text: "This product can only be subscribed to, not added once." };
@@ -161,7 +159,7 @@ async function addFromDetail(productId: string, qty: number): Promise<OpReport &
   const cta = ctx.elements.find((e) => e.label === "Add to cart");
   if (!cta) return { ok: false, text: "I can't see an Add to cart button here." };
   const before = ctx.cartCount;
-  setStep(`Adding ${byId(productId).name}…`);
+  await setStep(`Adding ${byId(productId).name}…`);
   const r = await tap(cta.ref, { why: "add to cart" });
   if (r.status !== "ok") return { ok: false, text: r.message ?? "That didn't go through." };
   await until(() => observe().cartCount - before >= qty);
@@ -179,7 +177,7 @@ export async function setQtyOnScreen(target: number): Promise<OpReport> {
     const label = v < target ? "Increase" : "Decrease";
     const btn = observe().elements.find((e) => e.label === label && !e.productId && e.inView) ?? observe().elements.find((e) => e.label === label && !e.productId);
     if (!btn || btn.disabled) return { ok: false, text: `The quantity can't go ${v < target ? "higher" : "lower"} than ${v} here.` };
-    setStep(`Setting quantity to ${target}…`);
+    await setStep(`Setting quantity to ${target}…`);
     await tap(btn.ref, { why: `quantity ${v} → ${target}` });
   }
   return { ok: false, text: "The quantity didn't change as expected." };
@@ -188,7 +186,7 @@ export async function setQtyOnScreen(target: number): Promise<OpReport> {
 /** Change or remove a cart line through the cart screen's own controls. */
 export async function cartChange(productId: string | undefined, target: number | "remove", delta?: number): Promise<OpReport> {
   return run(async () => {
-    setStep("Opening your cart…");
+    await setStep("Opening your cart…");
     await goTo("cart");
     let ctx = observe();
     const lines = ctx.products;
@@ -207,7 +205,7 @@ export async function cartChange(productId: string | undefined, target: number |
       if (!cur) break;
       const btn = within(cur.ref, ctx.elements).find((e) => e.label === (have > goal ? "Decrease" : "Increase"));
       if (!btn) return { ok: false, text: "I can't find the quantity buttons for that item." };
-      setStep(goal === 0 ? `Removing ${line.name}…` : `Changing ${line.name} to ${goal}…`);
+      await setStep(goal === 0 ? `Removing ${line.name}…` : `Changing ${line.name} to ${goal}…`);
       await tap(btn.ref, { why: `cart quantity ${have} → ${goal}` });
     }
     ctx = observe();
@@ -223,7 +221,7 @@ export async function cartChange(productId: string | undefined, target: number |
 export async function openScreen(target: Screen, params?: Record<string, string>): Promise<OpReport & { path: string[] }> {
   let path: string[] = [];
   const r = await run(async () => {
-    setStep("Finding the way there…");
+    await setStep("Finding the way there…");
     const g = await goTo(target, params); path = g.path;
     return { ok: g.ctx.screen === target, text: g.ctx.title };
   });
@@ -238,7 +236,7 @@ export async function tapByName(name: string, allowT2 = false): Promise<OpReport
     const score = (e: UiEl) => { const l = e.label.toLowerCase(); return l === n ? 3 : l.startsWith(n) ? 2 : l.includes(n) ? 1 : n.includes(l) && l.length > 3 ? 0.5 : 0; };
     const cands = ctx.elements.filter((e) => e.role !== "input" && score(e) > 0).sort((a, b) => score(b) - score(a) || Number(b.inView) - Number(a.inView));
     if (!cands.length) return { ok: false, text: `I can't see “${name}” on this screen. ${describe(ctx)}` };
-    setStep(`Tapping “${cands[0].label}”…`);
+    await setStep(`Tapping “${cands[0].label}”…`);
     const r = await tap(cands[0].ref, { allowT2, why: `customer asked to tap ${name}` });
     if (r.status !== "ok") return { ok: false, text: r.message ?? "That didn't work." };
     return { ok: true, text: `Tapped “${cands[0].label}”.${r.ctx.screen !== ctx.screen ? ` You're now on ${r.ctx.title}.` : ""}` };
@@ -251,17 +249,17 @@ export async function fillByName(field: string | undefined, text: string): Promi
     const ctx = observe(); const f = (field ?? "").toLowerCase();
     const input = (f && ctx.inputs.find((i) => i.label.toLowerCase().includes(f))) || (ctx.inputs.length === 1 ? ctx.inputs[0] : ctx.inputs.find((i) => i.field === "search"));
     if (!input) return { ok: false, text: ctx.inputs.length ? `Which field? I can see ${ctx.inputs.map((i) => i.label).join(", ")}.` : "There's no text field on this screen." };
-    setStep(`Typing into ${input.label}…`);
+    await setStep(`Typing into ${input.label}…`);
     const r = await fill(input.ref, text);
     return { ok: r.status === "ok", text: r.status === "ok" ? `Typed “${text}” into ${input.label}.` : r.message ?? "That didn't work." };
   });
 }
 
 export async function scrollScreen(dir: "up" | "down"): Promise<OpReport> {
-  return run(async () => { setStep(`Scrolling ${dir}…`); const r = await scroll(dir); return { ok: r.status === "ok", text: r.status === "ok" ? `Scrolled ${dir}.` : r.message! }; });
+  return run(async () => { await setStep(`Scrolling ${dir}…`); const r = await scroll(dir); return { ok: r.status === "ok", text: r.status === "ok" ? `Scrolled ${dir}.` : r.message! }; });
 }
 export async function back(): Promise<OpReport> {
-  return run(async () => { setStep("Going back…"); const r = await goBack(); return { ok: true, text: `Back on ${r.ctx.title}.` }; });
+  return run(async () => { await setStep("Going back…"); const r = await goBack(); return { ok: true, text: `Back on ${r.ctx.title}.` }; });
 }
 /** Open a product's page from wherever it is visible, searching for it if needed. */
 export async function openProduct(productId: string): Promise<OpReport> {
@@ -272,7 +270,7 @@ export async function openProduct(productId: string): Promise<OpReport> {
     if (!tile) { ctx = (await searchFor(p.short.length > 3 ? p.short : p.name)) ?? observe(); tile = ctx.products.find((x) => x.productId === productId); }
     const open = tile && within(tile.ref, ctx.elements).find((e) => e.action === "open");
     if (!open) return { ok: false, text: `I couldn't find ${p.name} on screen.` };
-    setStep(`Opening ${p.name}…`);
+    await setStep(`Opening ${p.name}…`);
     const r = await tap(open.ref, { why: `open ${p.name}` });
     const ok = r.ctx.screen === "product" && r.ctx.contextProductId === productId;
     return { ok, text: ok ? `Here's ${p.name} (${p.size})${p.rating ? `, rated ★${p.rating.toFixed(1)}` : ""}. I can add it to your cart, change the quantity or set up a subscription.` : `I tried to open ${p.name}, but the screen didn't change.`,
@@ -282,7 +280,6 @@ export async function openProduct(productId: string): Promise<OpReport> {
 export async function setQuantity(qty: number): Promise<OpReport> { return run(() => setQtyOnScreen(qty)); }
 export async function addProduct(productId: string, qty: number): Promise<OpReport & { cart?: number }> {
   return run(async () => {
-    setStep(`Reading the ${observe().title} screen…`); await wait(200);
     const r = await addProductOnScreen(productId, qty);
     if (!r.ok) return r;
     const p = byId(productId);

@@ -8,7 +8,7 @@ export type Intent =
   | "payment_failed" | "payment_request" | "cashback" | "vip" | "smart_recharge" | "wallet_balance" | "end_vacation" | "vacation" | "pause_subscription"
   | "remove_subscription" | "change_subscription" | "add_subscription" | "add_to_cart" | "cart_view" | "cart_remove" | "cart_qty" | "tomorrow_order"
   | "ui_find" | "open_product" | "screen_query" | "ui_tap" | "ui_fill" | "ui_scroll" | "ui_back"
-  | "offers" | "navigate" | "greet" | "thanks" | "yes" | "no" | "unknown";
+  | "offers" | "navigate" | "greet" | "thanks" | "goodbye" | "yes" | "no" | "unknown";
 
 export interface Parsed {
   intent: Intent;
@@ -170,6 +170,7 @@ export function parse(input: string, clock: string, nested = false): Parsed {
   const intent = ((): Intent => {
     if (has(/^\s*(yes|yeah|yep|haan|han|ok|okay|sure|confirm|go ahead|theek hai)\s*[.!]?\s*$/)) return "yes";
     if (has(/^\s*(no|nope|nahi|nah|cancel|don'?t)\s*[.!]?\s*$/)) return "no";
+    if (has(/^\s*(ok(ay)?,?\s+)?(bye|goodbye|good bye|that'?s all|that is all|i'?m done|i am done|nothing else|stop listening|end (the )?(conversation|chat|call)|no,? (that'?s|that is) all|that'?ll be all)\b/)) return "goodbye";
     if (has(/\b(talk|speak|connect)\b.*\b(person|human|agent|executive|someone|customer care)\b|\bcustomer care\b|\breal person\b/)) return "human";
     if (has(/\b(diabet\w*|pregnan\w*|blood pressure|\bbp\b|cholesterol|kidney|thyroid|pcos|medicine|medication|my doctor|disease|heart patient|surgery)\b/)) return "medical";
     if (has(/\b(work ?out|workouts|working out|started training|gym|fitness|exercis\w*|protein intake|muscle|wellness|weight loss|lose weight|healthy eating|nutrition)\b/)) return "wellness";
