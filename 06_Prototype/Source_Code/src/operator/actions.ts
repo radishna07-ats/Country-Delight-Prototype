@@ -14,14 +14,12 @@ export class Stopped extends Error { constructor() { super("stopped"); } }
 export const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms * OP.speed));
 const check = () => { if (OP.cancelled) throw new Stopped(); };
 
-// The step line is a caption: while speech is on it is spoken, and the operator waits for it (captions == speech).
-let stepSpeaker: (id: string, text: string) => Promise<void> = () => Promise.resolve();
-export const setStepSpeaker = (f: typeof stepSpeaker) => { stepSpeaker = f; };
+// The step line is an OPERATIONAL update: shown in the bar while the agent works, never spoken (speechPolicy).
 let stepSeq = 0;
 export function setStep(step: string): Promise<void> {
   const id = `step-${++stepSeq}`;
   ui.set((s) => ({ ...s, operator: { step, running: true, id } }));
-  return OP.speed ? stepSpeaker(id, step) : Promise.resolve();
+  return Promise.resolve();
 }
 export function endOperator() {
   hidePointer();

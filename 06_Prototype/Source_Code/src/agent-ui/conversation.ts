@@ -1,11 +1,11 @@
 // Voice-first conversation for the in-app assistant.
 //
-// 1. Captions == speech. Every message the assistant shows in its captions (replies, questions, the live step
-//    line while it works in the app, voice notices) goes through ONE speech queue and is spoken exactly as
+// 1. Spoken captions. Every message the speech policy marks for speech (acknowledgements, questions,
+//    explanations, confirmations, outcomes, issues) goes through ONE speech queue and is spoken exactly as
 //    displayed, in order, never cancelled by the next message. Text is split into sentences; the caption
 //    highlights the sentence being spoken. Only pronunciation is normalised (“₹1,614” → “1,614 rupees”).
-//    While speech is on, the in-app operator waits for each step to be spoken before acting, so the screen,
-//    the caption and the voice stay in step.
+//    WHAT is spoken is decided by the speech policy (src/agent/speechPolicy.ts): conversational replies and
+//    final outcomes only. Operational progress (the step line, navigation, tool calls) is visual only.
 // 2. Hands-free loop. One tap on the mic starts a conversation: listen → (end of speech detected) → process →
 //    speak → listen again, until the customer ends it, says “that's all”, or stays silent for two turns.
 //    The persistent microphone stream from voice.ts is reused (no new permission prompts); its level drives the
@@ -64,8 +64,11 @@ let generation = 0;           // bumped by interrupt(): stops the sentence loop
 let synthHealthy = true;      // false after the engine fails to start (headless, no voices): don't wait on it
 
 /** Speak a caption. Resolves when it has been spoken (or immediately when speech is off/unavailable). */
+const queuedIds = new Set<string>();
 export function speakCaption(id: string, text: string): Promise<void> {
   if (!speechOn() || !text.trim()) return Promise.resolve();
+  if (queuedIds.has(id)) return Promise.resolve(); // one workflow, one spoken response: never queue a message twice
+  queuedIds.add(id);
   return new Promise((resolve) => { queue.push({ id, text, resolve }); pump(); });
 }
 
@@ -340,6 +343,6 @@ function startVad() {
     }
   }, 60);
 }
-// Don't let barge-in fire while the assistant is narrating its own steps in the app (it would abandon the task).
+// Don't let barge-in fire while a task is running in the app (it would abandon the task); Stop is always available.
 const processingTask = () => !!ui.get().operator;
 export function stopVad() { if (vadTimer) clearInterval(vadTimer); vadTimer = null; an = null; }

@@ -13,6 +13,7 @@ import {
 import { ALLERGENS, HEALTH_GOALS, searchCatalogue } from "../data/catalogue";
 import { hasDom, observe, describe as describeScreen, SCREEN_NAMES, type ScreenContext } from "../operator/screen";
 import * as op from "../operator/operator";
+import { logSpeechDecision, type SpeechKind } from "./speechPolicy";
 
 // ------------------------------------------------------------------ session memory (not persisted)
 type Pending =
@@ -41,17 +42,21 @@ let lang: "en" | "hi" = "en";
 let lastParsed: Parsed | null = null;
 const L = (en: string, hi?: string) => (lang === "hi" && hi ? hi : en);
 
-export const speakListeners = new Set<(text: string, channel: Channel, id: string) => void>();
+/** Every new agent message (with its speech metadata). Whether it is spoken is decided by speechPolicy, not here. */
+export const speakListeners = new Set<(msg: Msg, channel: Channel) => void>();
 
 // ------------------------------------------------------------------ message plumbing
 const threadKey = (ch: Channel) => (ch === "whatsapp" ? "waMessages" : ch === "voice" ? "callMessages" : "messages") as "messages" | "waMessages" | "callMessages";
 function push(ch: Channel, m: Omit<Msg, "id" | "at" | "channel">) {
   const msg: Msg = { id: uid("m"), at: db.get().clock, channel: ch, ...m };
   ui.set((s) => ({ ...s, [threadKey(ch)]: [...s[threadKey(ch)], msg] }));
-  if (m.role === "agent") speakListeners.forEach((l) => l(m.text, ch, msg.id));
+  if (m.role === "agent") { logSpeechDecision(msg, ch); speakListeners.forEach((l) => l(msg, ch)); }
   return msg;
 }
-const say = (ch: Channel, text: string, cards?: CardData[], chips?: Chip[]) => push(ch, { role: "agent", text, cards, chips });
+type SayMeta = { speech?: SpeechKind; detail?: string };
+/** An agent message. Unlabelled replies are conversational (spoken); task outcomes are marked `final`;
+ *  supporting facts go in `detail` (shown, never spoken), so the spoken caption stays short and exact. */
+const say = (ch: Channel, text: string, cards?: CardData[], chips?: Chip[], meta?: SayMeta) => push(ch, { role: "agent", text, cards, chips, ...meta });
 const chip = (label: string, event: AgentEvent): Chip => ({ label, event });
 const sayChip = (label: string, text = label) => chip(label, { kind: "say", text });
 
@@ -259,12 +264,12 @@ async function goTo(screen: Screen, ch: Channel, params?: Record<string, string>
   if (ch === "inapp" && hasDom()) {
     const r = await op.openScreen(screen, params);
     const via = r.path.filter((x) => x !== "direct");
-    return say(ch, `Opened ${SCREEN_NAMES[screen] ?? screen}${via.length ? ` (${via.join(" › ")})` : ""}.`);
+    return say(ch, `Here's ${SCREEN_NAMES[screen] ?? screen}.`, undefined, undefined, { speech: "final", detail: via.length ? `Opened via ${via.join(" › ")}` : undefined });
   }
   await api.navigate(ch, screen);
   if (ch === "inapp") navigate(screen, params);
   const names: Record<string, string> = { subscriptions: "My Subscriptions", vacations: "Vacations", cdmoney: "CD Money", transactions: "Transactions", orders: "My Orders", account: "Account & Preferences", cart: "your cart", offers: "Offer Zone", wellness: "Your Wellness Journey", menu: "the menu", home: "Home", products: "Products" };
-  if (ch === "inapp") say(ch, `Opened ${names[screen] ?? screen}.`);
+  if (ch === "inapp") say(ch, `Here's ${names[screen] ?? screen}.`, undefined, undefined, { speech: "final" });
   else say(ch, `You'll find that in the app under ${names[screen] ?? screen}.`);
 }
 
@@ -491,7 +496,7 @@ async function endVacation(ch: Channel) {
   const r = await api.end_vacation(ch, v.id);
   if (r.status !== "ok") return toolDown(ch);
   toast("Vacation ended");
-  return say(ch, `Done — I've ended the vacation (${fmtDate(v.start)} – ${fmtDate(v.end)}). Deliveries continue as normal from ${fmtDate(earliestChangeDate(db.get().clock))}.`);
+  return sayFinal(ch, `Done — I've ended the vacation (${fmtDate(v.start)} – ${fmtDate(v.end)}). Deliveries continue as normal from ${fmtDate(earliestChangeDate(db.get().clock))}.`);
 }
 
 // ------------------------------------------------------------------ confirm / cancel / undo (T2, T3)
@@ -546,7 +551,7 @@ async function confirm(changeId: string, ch: Channel) {
       r = await api.request_wallet_refund(ch);
       if (r.status === "ok") {
         pc.done = true; patchCard(changeId, { state: "confirmed", reference: r.data.reference });
-        return say(ch, `Refund requested: ${rupees(r.data.refundable)}, reference ${r.data.reference}. Country Delight will send you a secure SMS link to share your bank details — I never ask for bank details here. It reaches your bank ${r.data.sla}.`);
+        return sayFinal(ch, `Refund requested: ${rupees(r.data.refundable)}, reference ${r.data.reference}. Country Delight will send you a secure SMS link to share your bank details — I never ask for bank details here. It reaches your bank ${r.data.sla}.`);
       }
       break;
     }
@@ -556,7 +561,7 @@ async function confirm(changeId: string, ch: Channel) {
     pc.done = true; pc.at = Date.now();
     patchCard(changeId, { state: "confirmed" });
     toast(okText.split(".")[0]);
-    return say(ch, okText, undefined, chips);
+    return say(ch, okText, undefined, chips, { speech: "final" });
   }
   patchCard(changeId, { state: "failed", error: r.message });
   if (r.status === "refused") return say(ch, `Country Delight's system didn't accept that: ${r.message} Nothing was changed.`);
@@ -583,7 +588,7 @@ async function undo(changeId: string, ch: Channel) {
   pc.done = false; delete pending[changeId];
   patchCard(changeId, { state: "undone" });
   toast("Change undone", "info");
-  return say(ch, "Undone — everything is back as it was.");
+  return sayFinal(ch, "Undone — everything is back as it was.");
 }
 
 // ------------------------------------------------------------------ UC1: wallet
@@ -760,7 +765,7 @@ async function applyResolution(changeId: string, pc: Extract<Pending, { kind: "r
   pending[changeId].done = true; patchCard(changeId, { state: "confirmed" });
   toast(res.id === "credit" ? "Credit added to CD Money" : "Resolution confirmed");
   const ticket = t.data as any;
-  return say(ch, L(`Done — ${res.label.toLowerCase()}. Your case number is ${ticket.id}; you won't need to explain this again. Would you like the rider to call you before delivery instead of leaving it at the gate?`,
+  return sayFinal(ch, L(`Done — ${res.label.toLowerCase()}. Your case number is ${ticket.id}; you won't need to explain this again. Would you like the rider to call you before delivery instead of leaving it at the gate?`,
     `Ho gaya — ${res.label}. Aapka case number ${ticket.id} hai. Kya rider delivery se pehle call kare?`),
     [{ type: "ticket", ticketId: ticket.id }],
     [sayChip(L("Yes, call before delivery", "Haan, call kare"), "Please call before delivery"), sayChip(L("No, thanks", "Nahi"), "thanks")]);
@@ -788,7 +793,7 @@ async function tomorrowOrder(ch: Channel) {
   if (ch === "inapp") { await api.navigate(ch, "orders"); navigate("orders", { highlight: o?.id ?? "" }); }
   if (!o) return say(ch, `There's no delivery scheduled for ${fmtDate(date)}${inVacation(db.get().vacations, date) ? " — you're on vacation" : ""}.`);
   const total = o.lines.reduce((s: number, l: any) => s + l.price * l.qty, 0);
-  return say(ch, `${ch === "inapp" ? "I've opened My Orders — it's at the top. " : ""}Your order for ${fmtDate(date)} has ${o.lines.length} item(s), ${rupees(total)}, arriving 5:00–7:30 AM. You can still change it until 11 pm tonight.`,
+  return say(ch, `Your order for ${fmtDate(date)} has ${o.lines.length} item(s), ${rupees(total)}, arriving 5:00–7:30 AM. You can still change it until 11 pm tonight.`,
     [{ type: "order_status", orderId: o.id }], [sayChip("Add one more milk", "Add one more packet of milk to my regular subscription"), sayChip("Skip tomorrow", "Pause my deliveries tomorrow")]);
 }
 
@@ -949,7 +954,19 @@ function withContext(p: Parsed, ctx: ScreenContext): Parsed {
 
 function report(r: op.OpReport, ch: Channel) {
   const chips = (r.chips ?? []).map((c) => (c.screen ? chip(c.label, { kind: "navigate", screen: c.screen }) : sayChip(c.label, c.say ?? c.label)));
-  return say(ch, r.text, undefined, chips);
+  return say(ch, r.text, undefined, chips, { speech: r.ok ? "final" : "conversational", detail: r.detail });
+}
+const sayFinal = (ch: Channel, text: string, cards?: CardData[], chips?: Chip[], detail?: string) => say(ch, text, cards, chips, { speech: "final", detail });
+
+/** Spoken acknowledgement before a multi-step task the assistant then does silently. */
+function acknowledge(ch: Channel, f: NonNullable<Parsed["find"]>) {
+  const budget = f.maxPrice != null ? ` within your ${rupees(f.maxPrice)} budget` : f.minPrice != null ? ` above ${rupees(f.minPrice)}` : "";
+  const text = f.add
+    ? f.pick === "best_rated" || f.pick === "most_reviewed" ? `Sure! I'll find the best-rated option${budget} and add it to your cart.`
+      : f.pick === "cheapest" ? `Sure! I'll find the most affordable ${f.query}${budget} and add it to your cart.`
+      : `Sure! I'll find ${f.query}${budget} and add it to your cart.`
+    : `Sure! Let me find the ${f.query} options${budget} for you.`;
+  say(ch, text, undefined, undefined, { speech: "conversational" });
 }
 
 /** Requests the agent fulfils by operating the app's own UI. Returns false to fall through to the API tools. */
@@ -958,6 +975,7 @@ async function operate(p: Parsed, ch: Channel): Promise<boolean> {
   switch (p.intent) {
     case "ui_find": {
       const f = p.find!;
+      acknowledge(ch, f);
       report(await op.findProducts({ query: f.query, maxPrice: f.maxPrice, minPrice: f.minPrice, pick: f.pick, add: f.add, qty: p.qty ?? 1 }), ch);
       return true;
     }
@@ -970,7 +988,7 @@ async function operate(p: Parsed, ch: Channel): Promise<boolean> {
         awaiting = { intent: "pick_milk_cart", qty };
         const usual = activeSubs().find((s) => MILK_VARIANT_IDS.includes(s.productId))?.productId ?? "cow-milk";
         const ids = [usual, ...MILK_VARIANT_IDS.filter((i) => i !== usual)].slice(0, 3);
-        say(ch, `I've opened the milk options. Which one should I add ${qty} of: your usual ${byId(usual).name}, or another?`, undefined,
+        say(ch, `Which milk would you like? I can add ${qty} of your usual ${byId(usual).name}, or another one from the options on your screen.`, undefined,
           ids.map((id) => chip(byId(id).name, { kind: "add", productId: id, qty })));
         return true;
       }
@@ -978,7 +996,7 @@ async function operate(p: Parsed, ch: Channel): Promise<boolean> {
       if (specific.length > 1) {
         const common = p.text.toLowerCase().match(/protein powder|whey|milk|paneer|dahi|eggs?|bread/)?.[0] ?? specific[0].short;
         await op.run(async () => { await op.searchFor(common); return { ok: true, text: "" }; });
-        say(ch, `I found ${specific.length} options for “${common}” and put them on screen. Which one should I add?`, undefined, specific.slice(0, 3).map((x) => chip(x.name, { kind: "add", productId: x.id, qty })));
+        say(ch, `I found ${specific.length} options for “${common}”. Which one should I add?`, undefined, specific.slice(0, 3).map((x) => chip(x.name, { kind: "add", productId: x.id, qty })));
         return true;
       }
       say(ch, ctx.products.length ? `Which one? I can see ${ctx.products.slice(0, 3).map((x) => x.name).join(", ")}${ctx.products.length > 3 ? " and more" : ""}.` : "Which product should I add?");
@@ -1009,7 +1027,7 @@ async function operate(p: Parsed, ch: Channel): Promise<boolean> {
       const pid = ctx.contextProductId;
       if (ctx.screen === "product" && pid && p.qty && !activeSubs().some((s) => s.productId === pid)) {
         const r = await op.setQuantity(p.qty);
-        say(ch, r.ok ? `Set the quantity to ${p.qty} on this screen. Say “add it to my cart” or “subscribe daily” when you're ready.` : r.text);
+        say(ch, r.ok ? `Done, the quantity is now ${p.qty}. Would you like to add it to your cart, or subscribe?` : r.text, undefined, undefined, { speech: r.ok ? "final" : "conversational" });
         return true;
       }
       return false;
@@ -1035,7 +1053,7 @@ function findFallback(p: Parsed, ch: Channel) {
 }
 
 /** A short spoken-and-shown message from the assistant itself (e.g. the hands-free loop ending). */
-export function notice(text: string, ch: Channel = "inapp") { say(ch, text); }
+export function notice(text: string, ch: Channel = "inapp") { say(ch, text, undefined, undefined, { speech: "conversational" }); }
 
 // Hidden "still remove" chip handler
 const _userSays = userSays;
@@ -1068,7 +1086,7 @@ async function sendOfferOnWhatsApp(offerId: string, ch: Channel) {
   logCall({ name: "workflow_step: whatsapp_template (offer)", kind: "workflow", status: "ok", channel: "whatsapp", args: { offerId, template: "offer_details_v1" } });
   outreachOpener(offerId, "whatsapp");
   awaiting = null;
-  return say(ch, "Done — I've sent the details to your WhatsApp. Thank you for your time, and have a good day!");
+  return sayFinal(ch, "Done — I've sent the details to your WhatsApp. Thank you for your time, and have a good day!");
 }
 
 export const resetEngine = () => { for (const k of Object.keys(pending)) delete pending[k]; awaiting = null; lang = "en"; };

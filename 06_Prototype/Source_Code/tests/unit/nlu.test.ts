@@ -136,3 +136,12 @@ describe("in-app operator intents", () => {
     expect(parse("open my subscriptions", CLOCK).intent).toBe("navigate");
   });
 });
+
+describe("client example phrasing", () => {
+  it("“Show me my whey protein powder” searches without adding", () => {
+    expect(parse("Show me my whey protein powder.", CLOCK)).toMatchObject({ intent: "ui_find", find: { query: "whey protein powder", add: false } });
+  });
+  it("“Find my whey protein powder under ₹2,000 and add the best-rated option to my cart”", () => {
+    expect(parse("Find my whey protein powder under ₹2,000 and add the best-rated option to my cart.", CLOCK)).toMatchObject({ intent: "ui_find", find: { query: "whey protein powder", maxPrice: 2000, pick: "best_rated", add: true } });
+  });
+});

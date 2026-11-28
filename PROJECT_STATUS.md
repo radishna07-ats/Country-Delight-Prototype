@@ -11,10 +11,10 @@
 | Audit and RCA | ✅ | 19 friction points, root causes, prioritisation workbook |
 | Journeys, personas, use cases | ✅ | Current and enhanced journeys, 6 use cases plus A1–A7, sequence diagrams |
 | Architecture, security, pilot, roadmap | ✅ | 6 documents in 05 |
-| Prototype | ✅ | All 6 use cases demonstrable; screen-aware agent that operates the app; compact bottom-docked assistant; voice-first hands-free conversation with spoken captions; 105/105 unit tests and 28/28 E2E tests |
+| Prototype | ✅ | All 6 use cases demonstrable; screen-aware agent that operates the app; compact bottom-docked assistant; voice-first hands-free conversation with spoken captions; 108/108 unit tests and 29/29 E2E tests |
 | Financial model | ✅ | 3 scenarios, 22 sensitivity cases, 0 formula errors |
 | Sales enablement | ✅ | 30-slide deck, pitch, CTO guide, demo script |
-| QA | ✅ | 160/160 test cases; 34 defects found and fixed; 0 open |
+| QA | ✅ | 164/164 test cases; 36 defects found and fixed; 0 open |
 
 ## 2. Completed in the final QA pass
 
@@ -36,6 +36,10 @@
 
 - **Captions are speech (D-29).** Every caption (replies, questions, each step while it works in the app, notices) is spoken exactly as shown, in order, sentence by sentence, with the spoken sentence highlighted. The operator waits for each spoken step.
 - **Hands-free conversation (D-30).** One mic tap; the assistant listens again after every reply and keeps the conversation going until the task is done and the customer says “that's all”, taps End, or stays silent. Mute, interrupt (tap, or just start talking) and End are always available; speech heard while it works is ignored except “stop”.
+
+## 2c. Client review changes (28 Nov 2026, second round)
+
+- **Speaks to communicate, not to narrate (D-35).** A central speech policy classifies every message (conversational, final, operational, silent); only conversational replies and final outcomes are spoken. Searching, comparing, navigating, adding and verifying happen silently with visual progress. Multi-step tasks get one spoken acknowledgement and one spoken outcome; supporting facts are shown in a detail line, never spoken. Checked across 13 journeys (E29).
 
 ## 3. Pending
 

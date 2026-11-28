@@ -13,7 +13,9 @@ import { Phone } from "../../src/App";
 
 let root: Root; let host: HTMLDivElement;
 const tick = (ms = 30) => new Promise((r) => setTimeout(r, ms));
-const last = () => ui.get().messages.filter((m) => m.role === "agent").slice(-1)[0]?.text ?? "";
+const agentMsgs = () => ui.get().messages.filter((m) => m.role === "agent");
+const last = () => agentMsgs().slice(-1)[0]?.text ?? "";
+const lastDetail = () => agentMsgs().slice(-1)[0]?.detail ?? "";
 const cartQty = (id: string) => db.get().cart.filter((c) => c.productId === id).reduce((n, c) => n + c.qty, 0);
 const say = async (t: string) => { await userSays(t, "inapp"); await tick(); };
 
@@ -50,8 +52,15 @@ describe("operating the app", () => {
     expect(c.inputs.find((i) => i.field === "search")?.value).toBe("protein powder");
     expect(cartQty("whey-1kg")).toBe(1);   // ★4.6 at ₹1,614 (VIP price)
     expect(cartQty("whey-2kg")).toBe(0);   // ★4.7 but over budget
-    expect(last()).toMatch(/best-rated of 2 options under ₹2,000/);
-    expect(last()).toMatch(/rated ★4\.7 but costs/);
+    // spoken outcome (short) vs visual detail (facts, comparison)
+    expect(last()).toMatch(/^Done! I've added the best-rated protein powder within your ₹2,000 budget to your cart\. It's Whey Protein Powder — Unflavoured/);
+    expect(lastDetail()).toMatch(/best-rated of 2 options under ₹2,000/);
+    expect(lastDetail()).toMatch(/rated ★4\.7 but costs/);
+    // speech policy: one acknowledgement + one final outcome; no step ever became a message
+    const turn = agentMsgs().slice(-2);
+    expect(turn[0]).toMatchObject({ speech: "conversational", text: "Sure! I'll find the best-rated option within your ₹2,000 budget and add it to your cart." });
+    expect(turn[1].speech).toBe("final");
+    expect(agentMsgs().some((m) => /Typing|Sorting|Reviewing|Choosing|Adding|Opening search/.test(m.text))).toBe(false);
   });
   it("cheapest + quantity", async () => {
     await say("Add the cheapest protein powder to my cart");
@@ -60,13 +69,13 @@ describe("operating the app", () => {
   it("nothing within budget: says so and adds nothing", async () => {
     await say("Find a protein powder under ₹500 and add the best-rated one");
     expect(db.get().cart).toHaveLength(0);
-    expect(last()).toMatch(/none under ₹500/);
+    expect(last()).toMatch(/nothing under ₹500\. The most affordable is .+ Would you like that instead\?/);
   });
   it("ambiguous “milk”: puts the options on screen, asks, then adds the chosen one through the app", async () => {
     await say("Add two packets of milk to my cart");
     expect(observe().inputs.find((i) => i.field === "search")?.value).toBe("milk");
     expect(db.get().cart).toHaveLength(0);
-    expect(last()).toMatch(/Which one/);
+    expect(last()).toMatch(/Which milk would you like\?/);
     await handleEvent({ kind: "add", productId: "cow-milk", qty: 2 }, "inapp"); await tick();
     expect(cartQty("cow-milk")).toBe(2);
   });
@@ -93,7 +102,8 @@ describe("operating the app", () => {
     await say("Open my subscriptions");
     expect(ui.get().route.screen).toBe("subscriptions");
     expect(ui.get().history.map((h) => h.screen)).toContain("menu");
-    expect(last()).toMatch(/Menu › My Subscriptions/);
+    expect(last()).toBe("Here's My Subscriptions.");
+    expect(lastDetail()).toMatch(/Menu › My Subscriptions/);
   });
   it("on a subscription screen, “this” is that subscription", async () => {
     ui.set((s) => ({ ...s, route: { screen: "subscription_edit", params: { id: db.get().subscriptions[0].id } } })); await tick(50);

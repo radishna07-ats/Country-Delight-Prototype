@@ -29,7 +29,7 @@ Checked against the brief's **§19 Final Success Criteria** on 21 Nov 2026. Each
 | Runs locally | ✅ | `npm install && npm run dev` — [06_Prototype/README.md](../06_Prototype/README.md) |
 | Main screens implemented | ✅ | Home, products, product, cart, subscriptions, edit, vacations, CD Money, transactions, orders, account, Ayuh, wellness, WhatsApp, call ([screenshots](../06_Prototype/screenshots/)) |
 | All six use cases demonstrable | ✅ | Scenarios: UC1 s4 · UC2 s5, s5w, s5c · UC3 s1, s3 · UC4 s7 · UC5 s2 · UC6 s6 · Ayuh hand-off s9 |
-| Important interactions work | ✅ | 28/28 E2E UI tests drive these with real clicks, including the agent operating the app (E20, E21) and the hands-free voice loop (E25–E28) |
+| Important interactions work | ✅ | 29/29 E2E UI tests drive these with real clicks, including the agent operating the app (E20, E21), the hands-free voice loop (E25–E28) and the speech policy across all journeys (E29) |
 | Data updates correctly | ✅ | Subscriptions, vacations, cart, cases, consent and the ledger update across screens (E03, E04, E07, E11) |
 | Navigation works | ✅ | Bottom navigation, menu, deep links from agent chips (E02, E04, E07, E12) |
 | Mobile and desktop layouts | ✅ | 390×844 (E18); presenter view at ≥1280 px; presentation mode |
@@ -61,8 +61,8 @@ Checked against the brief's **§19 Final Success Criteria** on 21 Nov 2026. Each
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| Functional test cases executed | ✅ | [Functional_Test_Cases.xlsx](Functional_Test_Cases.xlsx): 160/160 |
-| Critical defects resolved | ✅ | 34 found, 34 fixed, 0 open ([Test_Results.md](../06_Prototype/Test_Results.md)) |
+| Functional test cases executed | ✅ | [Functional_Test_Cases.xlsx](Functional_Test_Cases.xlsx): 164/164 |
+| Critical defects resolved | ✅ | 36 found, 36 fixed, 0 open ([Test_Results.md](../06_Prototype/Test_Results.md)) |
 | Calculations verified | ✅ | [QA_Report.md](QA_Report.md) §4: recalculation, reconciliation, hand recomputation |
 | No misleading production claims | ✅ | [QA_Report.md](QA_Report.md) §6 |
 | Deliverables open correctly | ✅ | [QA_Report.md](QA_Report.md) §7 |

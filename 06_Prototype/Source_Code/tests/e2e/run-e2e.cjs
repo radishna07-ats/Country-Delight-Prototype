@@ -52,10 +52,10 @@ const expectText = async (loc, re, timeout = 8000) => { await loc.filter({ hasTe
     });
 
     await tc("E02", "UC3 Scenario 1: add two packets of milk → cart badge 2", async () => {
-      await scenario("s1"); await expectText(agent, /Which one should I add 2/, 15000);
+      await scenario("s1"); await expectText(agent, /Which milk would you like\? I can add 2/, 15000);
       if ((await page.inputValue("[data-testid=search-input]")) !== "milk") throw new Error("milk options not opened in the app");
       await page.locator("[data-testid=chips] button", { hasText: "Cow Milk" }).first().click();
-      await expectText(agent, /Added 2 × Cow Milk/, 15000);
+      await expectText(agent, /added 2 × Cow Milk/i, 15000);
       await page.click("[data-testid=close-agent]");
       await expectText(page.locator("[data-testid=cart-badge]"), /^2$/);
     });
@@ -66,7 +66,7 @@ const expectText = async (loc, re, timeout = 8000) => { await loc.filter({ hasTe
       await page.waitForSelector("[data-testid=card-sub-change][data-state=confirmed]", { timeout: 8000 });
       await page.click("[data-testid=close-agent]");
       await expectText(page.locator("[data-testid=sub-qty-cow-milk]"), /Daily, Qty 2/);
-      await page.click("[data-testid=dock-open]"); await page.getByRole("button", { name: "Undo" }).last().click();
+      await page.click("[data-testid=dock-open]"); await page.locator("[data-testid=chips] button", { hasText: "Undo" }).first().click();
       await expectText(agent, /Undone/);
       await page.click("[data-testid=close-agent]");
       await expectText(page.locator("[data-testid=sub-qty-cow-milk]"), /Daily, Qty 1/);
@@ -214,7 +214,8 @@ const expectText = async (loc, re, timeout = 8000) => { await loc.filter({ hasTe
       if ((await page.getAttribute("[data-testid=sort-rating]", "aria-pressed")) !== "true") throw new Error("results not sorted by rating in the app");
       await expectText(page.locator("[data-testid=cart-badge]"), /^1$/);
       await expectText(page.locator("[data-testid=add-tile-whey-1kg]"), /ADD · 1/);
-      await expectText(page.locator("[data-testid=agent-bubble]"), /best-rated of 2 options under ₹2,000/);
+      await expectText(page.locator("[data-testid=agent-bubble]"), /Done! I've added the best-rated protein powder within your ₹2,000 budget/);
+      await expectText(page.locator("[data-testid=agent-detail]"), /best-rated of 2 options under ₹2,000/);
     });
 
     await tc("E21", "Context: on a product page, “add two of this” uses that product and the page's own controls", async () => {
@@ -299,7 +300,7 @@ const expectText = async (loc, re, timeout = 8000) => { await loc.filter({ hasTe
     const checkSpoken = async (v, extra = []) => {
       const r = await v.evaluate((extra) => {
         const S = window.__cdSpeech; const msgs = JSON.parse(localStorage.getItem("cd-graine-ui") || "{}").messages || [];
-        const want = []; msgs.filter((m) => m.role === "agent" && m.channel === "inapp").forEach((m) => S.sentencesOf(m.text).forEach((x) => want.push(S.toSpeech(x))));
+        const want = []; msgs.filter((m) => m.role === "agent" && m.channel === "inapp" && m.speech !== "operational" && m.speech !== "silent").forEach((m) => S.sentencesOf(m.text).forEach((x) => want.push(S.toSpeech(x))));
         extra.forEach((x) => want.push(S.toSpeech(x)));
         const got = window.__spoken; const missing = want.filter((w) => !got.includes(w));
         return { missing, got: got.length, want: want.length, overlap: window.__overlap };
@@ -309,23 +310,27 @@ const expectText = async (loc, re, timeout = 8000) => { await loc.filter({ hasTe
       return r;
     };
 
-    await tc("E25", "Captions == speech: greeting, every operator step and the reply are spoken exactly as shown, in order, without overlap", async () => {
+    const OPERATIONAL = /^(Typing|Sorting|Reviewing|Choosing|Adding|Opening|Finding the way|Checking|Switching|Setting quantity|Scrolling|Going back|Tapping|Removing|Changing)/;
+    await tc("E25", "Speech policy: the acknowledgement and the outcome are spoken; every step in between is shown but silent", async () => {
       const { vb, v } = await voicePage([], 3);
       try {
         await v.click("[data-testid=dock-open]"); await v.waitForTimeout(400);
-        await v.fill("[data-testid=composer]", "Find me a protein powder under ₹2,000 and add the best-rated option to my cart."); await v.click("[data-testid=send]");
-        // while it works: the step on screen is the step being spoken
-        await v.waitForSelector("[data-testid=operator-step]", { timeout: 8000 });
-        const sync = await v.waitForFunction(() => { const t = document.querySelector("[data-testid=operator-step-text]")?.textContent; return t && window.__now && window.__cdSpeech.toSpeech(t) === window.__now ? t : false; }, null, { timeout: 8000 });
-        const step = await sync.jsonValue();
-        await v.waitForFunction(() => !document.querySelector("[data-testid=operator-step]"), null, { timeout: 40000 });
-        // the reply: the highlighted sentence is the one being spoken
-        await v.waitForFunction(() => { const t = document.querySelector("[data-testid=agent-bubble] [data-testid=spoken-sentence]")?.textContent?.trim(); return t && window.__cdSpeech.toSpeech(t) === window.__now; }, null, { timeout: 8000 });
-        await v.waitForFunction(() => !window.__now, null, { timeout: 30000 }); await v.waitForTimeout(400);
-        const steps = await v.evaluate(() => window.__spoken.filter((x) => /Typing|Sorting|Reviewing|Choosing|Adding/.test(x)));
-        if (steps.length < 4) throw new Error(`operator steps not narrated: ${JSON.stringify(steps)}`);
-        await checkSpoken(v, [step]);
+        await v.waitForFunction(() => !window.__now, null, { timeout: 8000 });
+        const n0 = await v.evaluate(() => window.__spoken.length);
+        await v.fill("[data-testid=composer]", "Find my whey protein powder under ₹2,000 and add the best-rated option to my cart."); await v.click("[data-testid=send]");
+        await v.waitForSelector("[data-testid=operator-step]", { timeout: 8000 });                 // the steps are visible…
+        const seenSteps = new Set();
+        while (await v.isVisible("[data-testid=operator-step]")) { const t = await v.textContent("[data-testid=operator-step-text]").catch(() => null); if (t) seenSteps.add(t); await v.waitForTimeout(120); }
+        await v.waitForFunction(() => !window.__now, null, { timeout: 20000 }); await v.waitForTimeout(500);
+        const said = await v.evaluate((n0) => window.__spoken.slice(n0), n0);
+        if (seenSteps.size < 3) throw new Error(`progress not shown: ${[...seenSteps]}`);
+        const leaked = said.filter((x) => OPERATIONAL.test(x) || [...seenSteps].some((st) => x.startsWith(st.replace(/[“”…]/g, "").slice(0, 12))));
+        if (leaked.length) throw new Error(`operational steps were spoken: ${JSON.stringify(leaked)}`);  // …but never spoken
+        if (said.slice(0, 2).join(" ") !== "Sure! I'll find the best-rated option within your 2,000 rupees budget and add it to your cart.") throw new Error(`acknowledgement: ${said.slice(0, 2)}`);
+        if (!said.join(" ").includes("Done! I've added the best-rated whey protein powder within your 2,000 rupees budget to your cart.")) throw new Error(`outcome not spoken: ${JSON.stringify(said)}`);
+        await checkSpoken(v);
         await expectText(v.locator("[data-testid=cart-badge]"), /^1$/);
+        await expectText(v.locator("[data-testid=agent-detail]"), /★4\.7 but costs/);           // the facts are on screen, not in the voice
       } finally { await vb.close(); }
     });
 
@@ -373,6 +378,62 @@ const expectText = async (loc, re, timeout = 8000) => { await loc.filter({ hasTe
         if ((await v.getAttribute("[data-testid=speaker]", "aria-pressed")) !== "false") throw new Error("speaker not muted");
         await v.click("[data-testid=end-conversation]");
         await v.waitForSelector("[data-testid=close-agent]", { timeout: 3000 });
+      } finally { await vb.close(); }
+    });
+
+    await tc("E29", "Speech policy across all journeys: spoken = the new conversational/final captions exactly; nothing operational spoken", async () => {
+      const { vb, v } = await voicePage([], 1);
+      const report = [];
+      try {
+        const idle = async () => {
+          await v.waitForTimeout(350);
+          await v.waitForFunction(() => !document.querySelector("[data-testid=operator-step]") && !document.querySelector("[data-testid=thinking]") && !window.__now, null, { timeout: 30000 });
+          await v.waitForTimeout(700);
+          await v.waitForFunction(() => !window.__now, null, { timeout: 15000 });
+        };
+        const turn = async (label, act) => {
+          const start = await v.evaluate(() => ({ s: window.__spoken.length, m: (JSON.parse(localStorage.getItem("cd-graine-ui") || "{}").messages || []).length }));
+          await act(); await idle();
+          const r = await v.evaluate((start) => {
+            const S = window.__cdSpeech; const msgs = (JSON.parse(localStorage.getItem("cd-graine-ui")).messages || []).slice(start.m);
+            const want = []; msgs.filter((m) => m.role === "agent" && m.channel === "inapp" && m.speech !== "operational" && m.speech !== "silent").forEach((m) => S.sentencesOf(m.text).forEach((x) => want.push(S.toSpeech(x))));
+            return { want, got: window.__spoken.slice(start.s), kinds: msgs.filter((m) => m.role === "agent").map((m) => m.speech || "conversational") };
+          }, start);
+          if (!r.got.length) throw new Error(`${label}: nothing was spoken`);
+          if (JSON.stringify(r.got) !== JSON.stringify(r.want)) throw new Error(`${label}: spoken ≠ captions\n  spoken: ${JSON.stringify(r.got)}\n  captions: ${JSON.stringify(r.want)}`);
+          const leaked = r.got.filter((x) => OPERATIONAL.test(x)); if (leaked.length) throw new Error(`${label}: operational speech ${JSON.stringify(leaked)}`);
+          report.push(`${label}: ${r.kinds.join("+")}`);
+        };
+        const type = (t) => async () => { await v.fill("[data-testid=composer]", t); await v.click("[data-testid=send]"); };
+        const tapChip = (name) => async () => { await v.locator("[data-testid=chips] button", { hasText: name }).first().click(); };
+        const confirm = async () => { await v.locator("[data-testid=agent-sheet] [data-testid=card-confirm]").last().click(); };
+        const home = async () => { await v.click("[data-testid=ctl-reset]"); await v.click("[data-testid=ctl-home]"); await v.click("[data-testid=dock-open]"); await idle(); };
+        await home();
+        await turn("search, no add", type("Show me my whey protein powder."));
+        await turn("search + add", type("Find my whey protein powder under ₹2,000 and add the best-rated option to my cart."));
+        await turn("new subscription (question)", type("Add paneer every Sunday")); await turn("new subscription (confirmed)", confirm);
+        await turn("modify subscription (question)", type("Increase my daily milk quantity")); await turn("modify subscription (confirmed)", confirm);
+        await turn("pause (question)", type("Pause my coconut water for 3 days")); await turn("pause (confirmed)", confirm);
+        await turn("cancel subscription (save flow)", type("Stop my curd"));
+        await turn("delivery status", type("Where can I see tomorrow's order?"));
+        await turn("wallet balance", type("How much money is left in my CD Money wallet?"));
+        await turn("transactions", type("Why was money deducted?"));
+        await turn("Smart Recharge", type("What is Smart Recharge?"));
+        await turn("refund (question)", type("Refund my wallet balance to my bank")); await turn("refund (requested)", confirm);
+        await turn("offers", type("Any offers for me?"));
+        await turn("navigation", type("Open my subscriptions"));
+        await turn("human handoff", type("I want to talk to a person"));
+        // wellness: consent → goal → diet → allergy → recommendations
+        await home();
+        await turn("wellness consent", type("I have started working out. Recommend products."));
+        await turn("wellness goal", tapChip("Yes, remember them")); await turn("wellness diet", tapChip("High Protein"));
+        await turn("wellness allergy", tapChip("Vegetarian")); await turn("wellness recommendations", tapChip("Peanuts"));
+        // delivery complaint → resolution (morning issue scenario)
+        await v.click("[data-testid=scenario-s5]"); await idle();
+        await turn("complaint: options", tapChip("Checked — nothing there"));
+        await turn("complaint: chosen", async () => { await v.click("[data-testid=resolve-redeliver]"); });
+        await turn("complaint: resolved", confirm);
+        console.log("     " + report.join("\n     "));
       } finally { await vb.close(); }
     });
 

@@ -28,7 +28,8 @@ export function MessageList({ msgs, ch, thinking }: { msgs: Msg[]; ch: Channel; 
           <AssistantAvatar size={26} />
           <div className="flex-1 min-w-0 grid gap-2">
             <div className={cx("max-w-[94%] rounded-2xl rounded-tl-md bg-gray-50 border px-3 py-2 text-[13px] leading-relaxed", cap?.id === m.id ? "border-cd-leaf ring-2 ring-cd-leaf/25" : "border-cd-line/70")} data-speaking={cap?.id === m.id || undefined}>
-              {cap?.id === m.id ? <SpokenText cap={cap} /> : m.text}</div>
+              {cap?.id === m.id ? <SpokenText cap={cap} /> : m.text}
+              {m.detail && <div className="mt-1 text-[11px] leading-snug text-cd-muted" data-testid="agent-detail">{m.detail}</div>}</div>
             {m.cards?.map((c, i) => <AgentCard key={i} c={c} ch={ch} />)}
           </div>
         </div>
@@ -201,6 +202,7 @@ export function AgentDock() {
             <div className="flex items-end gap-1.5 animate-rise" key={bubbleKey}>
               <div className={cx("flex-1 min-w-0 rounded-2xl rounded-bl-md bg-white border px-3 py-2 text-[13px] leading-snug shadow-card", speakingThis ? "border-cd-leaf" : "border-cd-line")} data-testid="msg-agent" data-speaking={speakingThis || undefined}>
                 <div className={speakingThis ? "max-h-[132px] overflow-y-auto no-scrollbar" : "line-clamp-4"} data-testid="agent-bubble">{speakingThis ? <SpokenText cap={cap!} /> : lastAgent.text}</div>
+                {lastAgent.detail && <div className="mt-1 text-[11px] leading-snug text-cd-muted line-clamp-2" data-testid="agent-detail">{lastAgent.detail}</div>}
                 {!speakingThis && (hasHiddenCards || lastAgent.text.length > 180) && <button type="button" onClick={() => expand(true)} className="mt-1 text-[11.5px] font-bold text-cd-green" data-testid="show-details">{hasHiddenCards ? "Show details" : "Show more"}</button>}
               </div>
               <button type="button" aria-label="Hide reply" onClick={() => setHideBubble(bubbleKey)} className="w-7 h-7 rounded-full bg-white/90 border border-cd-line grid place-items-center text-cd-muted shrink-0"><I.x size={12} /></button>

@@ -104,11 +104,23 @@ Screens expose this through `data-agent-*` attributes, the prototype's version o
 
 **Voice-first conversation** (`src/agent-ui/conversation.ts`).
 
-- **Captions are speech.** Everything the assistant shows in its captions is spoken exactly as shown, in order, without one message cutting off another: replies, questions, each live step while it works in the app, and voice notices.
-  - Speech runs sentence by sentence, and the caption highlights the sentence being spoken.
-  - Only pronunciation is normalised ("₹1,614" is read as "1,614 rupees", "★4.6" as "4.6 stars"); the words never change.
-  - While speech is on, the operator waits for each step to be spoken before acting, so the screen, the caption and the voice move together.
-  - The speaker button mutes the voice; the captions continue.
+- **Speaks to communicate, not to narrate** (`src/agent/speechPolicy.ts`, the single place that decides).
+  - Every assistant message carries speech metadata:
+    - **conversational:** acknowledgements, questions, clarifications, explanations, confirmation requests, issues;
+    - **final:** the outcome of a task;
+    - **operational:** background progress;
+    - **silent.**
+  - Only conversational and final messages enter the speech queue.
+  - The step line ("Typing…", "Sorting…", "Adding…"), screen changes and tool calls are operational. They stay visible but have no path to the voice.
+  - Typical turn:
+    1. "Sure! I'll find the best-rated option within your ₹2,000 budget and add it to your cart." (spoken)
+    2. The work happens silently on screen.
+    3. "Done! I've added the best-rated whey protein powder within your ₹2,000 budget to your cart. It's Whey Protein Powder — Unflavoured, at ₹1,614." (spoken)
+  - Supporting facts (size, rating, the pricier option it skipped, cart total, the route taken) go in a smaller **detail** line under the caption, which is never spoken. So the spoken words and the caption always match exactly.
+  - Spoken messages are queued in order, are never cut off by a later update, and are never queued twice.
+  - Sentences are highlighted as they're spoken. Only pronunciation is normalised ("₹1,614" is read as "1,614 rupees", "★4.6" as "4.6 stars").
+  - Each decision is logged in the activity inspector ("speech: spoken (final)…" or "shown only").
+  - The speaker button mutes the voice.
 - **Hands-free.** One tap on the mic starts a conversation that loops: listen, detect the end of speech, process, answer aloud, listen again. It needs no more taps.
   - It ends when the customer says "that's all", "bye" or "I'm done", taps End, or stays silent for two turns. In the silent case the assistant says it will stop listening.
 - **States in the bar:**
@@ -162,13 +174,13 @@ Voice uses the browser's Web Speech API (Chrome or Edge), or claude.ai dictation
 Source_Code/
   src/data/        types, catalogue (illustrative prices), seed (fictional customer, consistent ledger)
   src/backend/     rules.ts · api.ts (simulated tools) · store.ts (persisted state, inspector log)
-  src/agent/       nlu.ts · engine.ts (conversation engine)
+  src/agent/       nlu.ts · engine.ts (conversation engine) · speechPolicy.ts (what is spoken)
   src/operator/    screen.ts (screen context) · actions.ts (tap, fill, navigate, highlight, tiers) · operator.ts (goal planner)
   src/agent-ui/    AgentSheet (AgentDock: compact bar ⇄ expanded panel) · Cards (components) · Channels (WhatsApp, call) · voice.ts (persistent mic, dictation) · conversation.ts (spoken captions, hands-free loop, voice activity)
   src/screens/     Shop (Home, Products, Product, Cart) · Account (Subscriptions, Edit, Vacations, CD Money, Transactions, Orders, Account & Preferences, Menu, Offers, History) · Wellness · Ayuh
   src/demo/        scenarios.ts · Panels (scenario launcher, controls, inspector)
-  tests/unit/      105 tests: NLU, dates, rules, all six scenarios, guardrails, the operator against the rendered app (jsdom), captions == speech
-  tests/e2e/       28 Playwright tests through the real UI (incl. operator, compact dock, microphone, spoken captions, hands-free loop); screenshot capture
+  tests/unit/      108 tests: NLU, dates, rules, all six scenarios, guardrails, the operator against the rendered app (jsdom), speech policy
+  tests/e2e/       29 Playwright tests through the real UI (incl. operator, compact dock, microphone, speech policy across all journeys, hands-free loop); screenshot capture
 ```
 
 ## Checks

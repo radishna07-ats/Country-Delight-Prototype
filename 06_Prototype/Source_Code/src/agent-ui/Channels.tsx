@@ -92,7 +92,7 @@ export function CallScreen() {
   const started = useRef(false);
   useEffect(() => {
     ui.set((x) => ({ ...x, channel: "voice", callMessages: [] }));
-    const l = (t: string, ch: string, _id: string) => { if (ch === "voice") speak(t); };
+    const l = (m: Msg, ch: string) => { if (ch === "voice") speak(m.text); };
     speakListeners.add(l);
     return () => { speakListeners.delete(l); stopSpeaking(); ui.set((x) => ({ ...x, channel: "inapp" })); };
   }, []);

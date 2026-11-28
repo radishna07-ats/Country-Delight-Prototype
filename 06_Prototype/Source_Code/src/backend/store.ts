@@ -69,6 +69,11 @@ export interface Msg {
   cards?: CardData[];
   chips?: Chip[];
   channel: Channel;
+  /** Speech policy (src/agent/speechPolicy.ts): conversational and final messages are spoken; operational and
+   *  silent ones are shown only. Absent on an agent message = conversational. */
+  speech?: "conversational" | "final" | "operational" | "silent";
+  /** Visual-only supporting detail under the caption (specs, prices, the route taken). Never spoken. */
+  detail?: string;
 }
 
 export interface ToolCallLog {

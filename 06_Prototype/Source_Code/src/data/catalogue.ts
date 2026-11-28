@@ -105,7 +105,7 @@ export const byId = (id: string) => CATALOGUE.find((p) => p.id === id)!;
 
 /** Catalogue search used by the Products screen: every word must match the name, aliases, tags or category. */
 export function searchCatalogue(q: string): Product[] {
-  const words = q.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w && !["a", "an", "the", "some", "me", "for"].includes(w));
+  const words = q.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w && !["a", "an", "the", "some", "me", "for", "my", "our", "your"].includes(w));
   if (!words.length) return [];
   const stem = (w: string) => w.replace(/(es|s)$/, "");
   return CATALOGUE.filter((p) => {

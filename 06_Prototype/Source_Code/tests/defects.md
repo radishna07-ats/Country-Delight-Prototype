@@ -36,6 +36,8 @@
 | D-32 | Steady background noise (a fan, Chromium's fake mic tone) was taken for the customer talking and cut the assistant off | E2E E27/E28 | Barge-in compares against the noise floor measured while listening and ignores the first 0.7 s of each sentence |
 | D-33 | Reply chips were hidden while the assistant spoke, so a tap could land on the screen behind instead | E2E E10 | Chips stay visible while speaking |
 | D-34 | Long step captions and bar labels were cut off with “…”, so not everything spoken was shown | Visual review | Step captions wrap; state labels shortened, with a hint line |
+| D-35 | **Client review.** Speech was too aggressive: every update was read out, including searching, reviewing results, selecting, adding and navigating, which made the assistant sound robotic | Client review | Central speech policy (`speechPolicy.ts`): messages are classified conversational / final / operational / silent and only the first two are spoken; operator steps are visual only; outcomes are short and spoken, facts moved to a visual detail line; spoken acknowledgement before multi-step tasks; verified across 13 journeys (E29) |
+| D-36 | “Find my whey protein powder” searched for “my whey protein powder” | Client example phrasing | Possessives dropped from search queries |
 
 ## Not tested / known limitations
 

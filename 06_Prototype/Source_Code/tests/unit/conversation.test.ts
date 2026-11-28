@@ -30,3 +30,16 @@ describe("captions == speech", () => {
     expect(parse("thank you", "2026-11-21T20:15").intent).toBe("thanks");
   });
 });
+
+import { shouldSpeak, speechKind } from "../../src/agent/speechPolicy";
+describe("speech policy", () => {
+  it("speaks conversational and final in-app messages only", () => {
+    expect(shouldSpeak({ role: "agent", text: "Which milk?", speech: undefined }, "inapp")).toBe(true);
+    expect(shouldSpeak({ role: "agent", text: "Done!", speech: "final" }, "inapp")).toBe(true);
+    expect(shouldSpeak({ role: "agent", text: "Searching…", speech: "operational" }, "inapp")).toBe(false);
+    expect(shouldSpeak({ role: "agent", text: "x", speech: "silent" }, "inapp")).toBe(false);
+    expect(shouldSpeak({ role: "user", text: "hello" }, "inapp")).toBe(false);
+    expect(shouldSpeak({ role: "agent", text: "Hi" }, "whatsapp")).toBe(false); // text channel
+    expect(speechKind({ role: "agent" })).toBe("conversational");
+  });
+});

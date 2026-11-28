@@ -9,10 +9,12 @@ import { endOperator, fill, goBack, goTo, highlight, OP, scroll, setStep, Stoppe
 export type Pick = "best_rated" | "cheapest" | "most_reviewed" | "first";
 export interface FindSpec { query: string; maxPrice?: number; minPrice?: number; pick?: Pick; add: boolean; qty: number; productId?: string }
 export interface OpChip { label: string; say?: string; screen?: Screen }
-export interface OpReport { ok: boolean; text: string; chips?: OpChip[]; productId?: string; options?: ScreenProduct[] }
+/** `text` is what the assistant says (and its caption, word for word); `detail` is shown under it, never spoken. */
+export interface OpReport { ok: boolean; text: string; detail?: string; chips?: OpChip[]; productId?: string; options?: ScreenProduct[] }
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : /(ch|sh|x|s)$/.test(w) ? "es" : "s"}`;
-const stars = (p: ScreenProduct) => (p.rating ? `, ★${p.rating.toFixed(1)} from ${p.reviews?.toLocaleString("en-IN")} ratings` : "");
+const budgetText = (s: FindSpec) => (s.maxPrice != null ? ` within your ${rupee(s.maxPrice)} budget` : s.minPrice != null ? ` above ${rupee(s.minPrice)}` : "");
+const facts = (p: ScreenProduct) => [p.size, rupee(p.price), p.rating ? `★${p.rating.toFixed(1)} (${p.reviews?.toLocaleString("en-IN")} ratings)` : ""].filter(Boolean).join(" · ");
 const priceText = (s: FindSpec) => (s.maxPrice != null && s.minPrice != null ? `between ${rupee(s.minPrice)} and ${rupee(s.maxPrice)}` : s.maxPrice != null ? `under ${rupee(s.maxPrice)}` : s.minPrice != null ? `above ${rupee(s.minPrice)}` : "");
 
 /** Run an operator task with a step indicator; always clears it, and honours Stop. */
@@ -80,12 +82,17 @@ export async function findProducts(spec: FindSpec): Promise<OpReport> {
     await setStep(`Reviewing ${plural(results.length, "result")}…`);
     logCall({ name: `read_results("${spec.query}")`, kind: "screen", status: "info", channel: "inapp", args: { results: results.map((r) => ({ id: r.productId, price: r.price, rating: r.rating })) } });
     await wait(350);
-    if (!results.length) return { ok: false, text: `I searched for “${spec.query}”, but nothing came up in the catalogue. Want to try another word?`, chips: [{ label: "Show all products", screen: "products" }] };
+    if (!results.length) {
+      const protein = /protein|whey/i.test(spec.query);
+      return { ok: false, text: `I couldn't find any ${spec.query} in the catalogue. ${protein ? "Would you like to see high-protein products instead?" : "Would you like to browse all products instead?"}`,
+        chips: protein ? [{ label: "Show high-protein products", say: "Show me high protein products" }] : [{ label: "Browse products", screen: "products" }] };
+    }
     const inStock = results.filter((r) => !r.outOfStock);
     const ok = inStock.filter((r) => (spec.maxPrice == null || r.price <= spec.maxPrice) && (spec.minPrice == null || r.price >= spec.minPrice));
     if (!ok.length) {
       const low = [...inStock].sort((a, b) => a.price - b.price)[0];
-      return { ok: false, text: `I found ${plural(results.length, "result")} for “${spec.query}”, but none ${priceText(spec) || "in stock"}.${low ? ` The lowest is ${low.name} at ${rupee(low.price)}.` : ""}`,
+      return { ok: false, text: `I found ${spec.query}, but nothing ${priceText(spec) || "in stock"}.${low ? ` The most affordable is ${low.name} at ${rupee(low.price)}. Would you like that instead?` : ""}`,
+        detail: results.map((r) => `${r.name} · ${rupee(r.price)}`).join("  |  "),
         chips: low ? [{ label: `Add ${low.name}`, say: `Add the ${low.name} to my cart` }] : [] };
     }
     const chosen = (spec.productId && ok.find((r) => r.productId === spec.productId)) || choose(ok, spec.pick);
@@ -93,13 +100,17 @@ export async function findProducts(spec: FindSpec): Promise<OpReport> {
     const why = reason(spec, chosen, ok, inStock);
     if (!spec.add) {
       return { ok: true, productId: chosen.productId, options: ok,
-        text: `I searched for “${spec.query}”: ${plural(ok.length, "match")}${priceText(spec) ? ` ${priceText(spec)}` : ""} on screen now. ${spec.pick ? `${why} ` : `The first is ${chosen.name} at ${rupee(chosen.price)}. `}Want me to add one?`,
+        text: `I found ${plural(ok.length, `${spec.query} option`)}${priceText(spec) ? ` ${priceText(spec)}` : ""}. Here they are on your screen, with their prices.${spec.pick ? ` The ${spec.pick === "cheapest" ? "most affordable" : "best-rated"} is ${chosen.name} at ${rupee(chosen.price)}.` : ""} Would you like me to add one?`,
+        detail: ok.slice(0, 4).map((r) => `${r.name} · ${rupee(r.price)}${r.rating ? ` · ★${r.rating.toFixed(1)}` : ""}`).join("  |  "),
         chips: [{ label: `Add ${chosen.name}`, say: `Add the ${chosen.name} to my cart` }] };
     }
     const r = await addProductOnScreen(chosen.productId, spec.qty);
     if (!r.ok) return r;
     return { ok: true, productId: chosen.productId,
-      text: `Done. I added ${spec.qty} × ${chosen.name} (${chosen.size}, ${rupee(chosen.price)}${stars(chosen)}) to your cart. ${why} Checkout stays with you.`,
+      text: spec.pick === "best_rated" || spec.pick === "most_reviewed" ? `Done! I've added the best-rated ${spec.query}${budgetText(spec)} to your cart. It's ${chosen.name}, at ${rupee(chosen.price)}.`
+        : spec.pick === "cheapest" ? `Done! I've added the most affordable ${spec.query}${budgetText(spec)} to your cart. It's ${chosen.name}, at ${rupee(chosen.price)}.`
+        : `Done! I've added ${spec.qty > 1 ? `${spec.qty} × ` : ""}${chosen.name} to your cart, at ${rupee(chosen.price)}.`,
+      detail: `${facts(chosen)} · ${why} Checkout stays with you.`,
       chips: [{ label: "View cart", screen: "cart" }, { label: "Remove it", say: `Remove the ${chosen.name} from my cart` }] };
   });
 }
@@ -213,7 +224,7 @@ export async function cartChange(productId: string | undefined, target: number |
     logCall({ name: `verify: ${line.name} in cart → ${now}`, kind: "screen", status: now === goal ? "ok" : "error", channel: "inapp" });
     if (now !== goal) return { ok: false, text: "The cart didn't update as expected, so please check it." };
     const total = ctx.products.reduce((s, l) => s + l.price * l.inCart, 0);
-    return { ok: true, text: goal === 0 ? `Removed ${line.name} from your cart. ${ctx.products.length ? `It now has ${plural(ctx.cartCount, "item")}, ${rupee(total)}.` : "Your cart is empty now."}` : `${line.name} is now ${goal} in your cart. Total ${rupee(total)}.` };
+    return { ok: true, detail: ctx.products.length ? `Cart: ${plural(ctx.cartCount, "item")}, ${rupee(total)}` : "Cart is empty", text: goal === 0 ? `Done! I've removed ${line.name} from your cart.${ctx.products.length ? "" : " Your cart is empty now."}` : `Done! ${line.name} is now ${goal} in your cart. Total ${rupee(total)}.` };
   });
 }
 
@@ -239,7 +250,7 @@ export async function tapByName(name: string, allowT2 = false): Promise<OpReport
     await setStep(`Tapping “${cands[0].label}”…`);
     const r = await tap(cands[0].ref, { allowT2, why: `customer asked to tap ${name}` });
     if (r.status !== "ok") return { ok: false, text: r.message ?? "That didn't work." };
-    return { ok: true, text: `Tapped “${cands[0].label}”.${r.ctx.screen !== ctx.screen ? ` You're now on ${r.ctx.title}.` : ""}` };
+    return { ok: true, text: r.ctx.screen !== ctx.screen ? `Done. You're now on ${r.ctx.title}.` : "Done.", detail: `Tapped “${cands[0].label}”` };
   });
 }
 
@@ -251,15 +262,15 @@ export async function fillByName(field: string | undefined, text: string): Promi
     if (!input) return { ok: false, text: ctx.inputs.length ? `Which field? I can see ${ctx.inputs.map((i) => i.label).join(", ")}.` : "There's no text field on this screen." };
     await setStep(`Typing into ${input.label}…`);
     const r = await fill(input.ref, text);
-    return { ok: r.status === "ok", text: r.status === "ok" ? `Typed “${text}” into ${input.label}.` : r.message ?? "That didn't work." };
+    return { ok: r.status === "ok", text: r.status === "ok" ? `Done, I've entered “${text}”.` : r.message ?? "That didn't work.", detail: r.status === "ok" ? `Field: ${input.label}` : undefined };
   });
 }
 
 export async function scrollScreen(dir: "up" | "down"): Promise<OpReport> {
-  return run(async () => { await setStep(`Scrolling ${dir}…`); const r = await scroll(dir); return { ok: r.status === "ok", text: r.status === "ok" ? `Scrolled ${dir}.` : r.message! }; });
+  return run(async () => { await setStep(`Scrolling ${dir}…`); const r = await scroll(dir); return { ok: r.status === "ok", text: r.status === "ok" ? "Done." : r.message!, detail: r.status === "ok" ? `Scrolled ${dir}` : undefined }; });
 }
 export async function back(): Promise<OpReport> {
-  return run(async () => { await setStep("Going back…"); const r = await goBack(); return { ok: true, text: `Back on ${r.ctx.title}.` }; });
+  return run(async () => { await setStep("Going back…"); const r = await goBack(); return { ok: true, text: `You're back on ${r.ctx.title}.` }; });
 }
 /** Open a product's page from wherever it is visible, searching for it if needed. */
 export async function openProduct(productId: string): Promise<OpReport> {
@@ -273,7 +284,8 @@ export async function openProduct(productId: string): Promise<OpReport> {
     await setStep(`Opening ${p.name}…`);
     const r = await tap(open.ref, { why: `open ${p.name}` });
     const ok = r.ctx.screen === "product" && r.ctx.contextProductId === productId;
-    return { ok, text: ok ? `Here's ${p.name} (${p.size})${p.rating ? `, rated ★${p.rating.toFixed(1)}` : ""}. I can add it to your cart, change the quantity or set up a subscription.` : `I tried to open ${p.name}, but the screen didn't change.`,
+    return { ok, text: ok ? `Here's ${p.name}. Would you like to add it to your cart, or set up a subscription?` : `I tried to open ${p.name}, but the screen didn't change.`,
+      detail: ok ? [p.size, p.rating ? `★${p.rating.toFixed(1)} (${p.reviews?.toLocaleString("en-IN")} ratings)` : ""].filter(Boolean).join(" · ") : undefined,
       chips: ok ? [{ label: "Add to cart", say: "Add this to my cart" }, { label: "Subscribe daily", say: "Subscribe to this daily" }] : [] };
   });
 }
@@ -283,7 +295,7 @@ export async function addProduct(productId: string, qty: number): Promise<OpRepo
     const r = await addProductOnScreen(productId, qty);
     if (!r.ok) return r;
     const p = byId(productId);
-    return { ...r, productId, text: `Added ${qty} × ${p.name} to your cart. It now has ${plural(r.cart ?? 0, "item")}. Checkout stays with you, I don't place orders or pay.`,
+    return { ...r, productId, text: `Done! I've added ${qty} × ${p.name} to your cart.`, detail: `Cart: ${plural(r.cart ?? 0, "item")} · checkout and payment stay with you`,
       chips: [{ label: "View cart", screen: "cart" }, { label: "Remove it", say: `Remove the ${p.name} from my cart` }] };
   });
 }

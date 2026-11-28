@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { db, ui, useDb, useUi, navigate, logCall, type Screen } from "./backend/store";
+import { db, ui, useDb, useUi, navigate, logCall, type Msg, type Screen } from "./backend/store";
+import type { Channel } from "./data/types";
 import { outreachOpener, speakListeners } from "./agent/engine";
 import { Home, Products, ProductDetail, Cart } from "./screens/Shop";
 import { Subscriptions, SubscriptionEdit, Vacations, CDMoney, Transactions, Orders, OrderDetail, Account, Menu, Offers, History } from "./screens/Account";
@@ -9,7 +10,7 @@ import { AgentDock } from "./agent-ui/AgentSheet";
 import { WhatsAppScreen, CallScreen } from "./agent-ui/Channels";
 import { initVoice } from "./agent-ui/voice";
 import { endConversation, interrupt, speakCaption } from "./agent-ui/conversation";
-import { setStepSpeaker } from "./operator/actions";
+import { shouldSpeak } from "./agent/speechPolicy";
 import { ScenarioPanel, Inspector } from "./demo/Panels";
 import { I } from "./ui/icons";
 import { cx } from "./ui/kit";
@@ -99,8 +100,9 @@ function useLoopingFriction() {
 export function Phone() {
   const s = useUi(); useLoopingFriction();
   useEffect(() => {
-    // Captions == speech: every in-app assistant message is spoken exactly as shown, in order.
-    const l = (t: string, ch: string, id: string) => { if (ch === "inapp") void speakCaption(id, t); };
+    // Speech policy: only messages classified conversational/final are spoken, exactly as captioned.
+    // Operational progress (the step line, screen changes, tool calls) never reaches the speech queue.
+    const l = (m: Msg, ch: Channel) => { if (shouldSpeak(m, ch)) void speakCaption(m.id, m.text); };
     speakListeners.add(l);
     // Leaving the in-app assistant (closing it, or switching to WhatsApp / a call) ends the voice conversation.
     const u = ui.subscribe(() => { const s = ui.get(); if (!s.agentOpen || ["whatsapp", "call"].includes(s.route.screen) || !s.speak) { if (!s.speak) interrupt("speaker muted"); if (!s.agentOpen || ["whatsapp", "call"].includes(s.route.screen)) { endConversation("assistant closed"); interrupt("assistant closed"); } } });
@@ -127,7 +129,6 @@ export function Phone() {
 }
 
 initVoice();
-setStepSpeaker(speakCaption);
 
 export default function App() {
   const [present, setPresent] = useState(() => new URLSearchParams(location.search).has("present") || location.hash === "#present");

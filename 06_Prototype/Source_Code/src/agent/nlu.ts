@@ -135,7 +135,7 @@ function parseFind(t: string): NonNullable<Parsed["find"]> {
   const add = /\badd\b|\bput\b.{0,30}\bcart\b|\bbuy\b|\bto (my|the) cart\b/.test(t);
   let q = (t.match(/\b(?:find|search(?: for)?|look(?:ing)? for|get me|show me|browse|buy|add|i want|i need)\s+(.*)/)?.[1] ?? t);
   q = q.split(/\b(?:under|below|less than|within|upto|up to|above|over|more than|between|and|then|to my cart|to the cart|in my cart|into my cart|with|that|which|for me|priced|costing|budget|rated)\b|[.,!?]/)[0];
-  q = q.replace(/^\s*(?:me|us)\s+/, "").replace(/^\s*(?:a|an|some|the|any|good|nice|one)\s+/g, "")
+  q = q.replace(/^\s*(?:me|us)\s+/, "").replace(/^\s*(?:my|our|your)\s+/, "").replace(/^\s*(?:a|an|some|the|any|good|nice|one)\s+/g, "")
     .replace(/\b(best[- ]?rated|top[- ]?rated|highest[- ]?rated|best reviewed|cheapest|lowest[- ]?priced|least expensive|most popular|most reviewed|best|top)\b/g, " ")
     .replace(/^\s*(?:a|an|some|the|any)\s+/g, "").replace(/\b(option|options|product|products|one|please|item|items)\b/g, " ").replace(/\s+/g, " ").trim();
   return { query: q, maxPrice: money(t.match(PRICE_MAX)), minPrice: money(t.match(PRICE_MIN)), pick, add };
